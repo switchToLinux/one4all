@@ -65,7 +65,10 @@ function menu_item() {
 }
 function menu_tail() { [[ "$item_index" != "0" ]] && echo "|" ; echo $line_feed ; item_index=0 ; }
 function println() { menu_item "$@" ; }
-
+# 日志记录
+log_file="/tmp/one4all.log"
+function loginfo() { echo -e "$(date +'%Y年%m月%d日%H:%M:%S'):INFO: $@" >> $log_file ; }
+function logerr()  { echo -e "$(date +'%Y年%m月%d日%H:%M:%S'):ERROR: $@" >> $log_file ; }
 
 ################################################################
 #  文本信息设定
@@ -108,7 +111,7 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
                 pac_cmd_ins="$pac_cmd install -y"
                 ;;
             opensuse*)
-                os_type="suse"
+                os_type="$ID"
                 pac_cmd="zypper"
                 pac_cmd_ins="$pac_cmd install -y"
                 ;;
@@ -129,10 +132,11 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
                 ;;
         esac
     fi
+    cpu_arch="`uname -m`"
+    loginfo "os_type:$os_type,os_version:$os_version,cpu_arch=$cpu_arch, pac_cmd=$pac_cmd ."
     if [ -z "$pac_cmd" ] ; then
         return 1
     fi
-    cpu_arch="`uname -m`"
     if [ "$cpu_arch" != "x86_64" ] ; then
         echo "invalid cpu arch:[$cpu_arch]"
         return 2
@@ -151,47 +155,105 @@ function check_basic() { # 基础依赖命令检测与安装
 function common_install_command() {
     str_cmd="$1"   # 命令名称
     str_url="$2"   # 下载命令的地址
+    loginfo "正在执行 common_install_command:参数 cmd=$1 ,url=$2"
     which $str_cmd >/dev/null && whiter_line "$str_cmd 命令已经安装了" && return 1
     read -p "设置安装位置(默认目录:/usr/local/bin):" str_path
     [[ ! -d "$str_path" ]] && echo "$str_path 目录不存在, 使用默认目录 /usr/local/bin :" && str_path="/usr/local/bin"
     $str_file="$str_path/$str_cmd"
     curl -o /tmp/${str_cmd}.tmp -L $str_url
-    [[ "$?" != "0" ]] && echo "${RED}下载失败!分析原因后再试吧.${TC}" && return 1
+    [[ "$?" != "0" ]] && echo -e "${RED}下载失败!分析原因后再试吧.${TC}" && return 1
     mv /tmp/${str_cmd}.tmp $str_file && chmod +x $str_file
     if [ "$?" != "0" ] ; then
         sudo mv /tmp/${str_cmd}.tmp $str_file && sudo chmod +x $str_file
     fi
+    loginfo "成功安装 $str_cmd 安装路径: $str_file"
 }
+# 磁盘空间检测： disk_check_usage path reserve_size
+function disk_check_usage() {
+    loginfo "正在执行 disk_check_usage : 参数 [$@]"
+    [[ "$#" != "2" ]] && echo -e "${RED}参数数量[ $# != 2 ]错误${NC}, disk_check_usage $@" && return 1
+    str_path="$1"          # 目录,用于识别磁盘分区
+    reserve_size="$2"     # 单位MB, 需要预留的最小磁盘大小
+    [[ ! -d "${str_path}" ]] && echo -e "${RED}检查的目录 ${str_path} 不存在!${NC}" && return 2
+    
+    # 剩余磁盘空间-512M(预留512MB,避免磁盘占满)
+    remain_size=`df -m $str_path | awk '/dev/{ print $4-512 }'`
+    if [ "$reserve_size" -gt "$remain_size" ] ; then
+        str_msg="剩余空间不足 $remain_size MB ,需要预留空间为 $reserve_size MB"
+        redr_line "$str_msg"  &&  logerr "$str_msg"
+        return 3
+    fi
+    str_msg="磁盘空间符合要求,剩余空间 $remain_size MB ,需要预留空间为 $reserve_size MB"
+    echo "$str_msg"   && loginfo "$str_msg"
+    return 0
+}
+
+function service_is_active() { service_name="$1" ; systemctl is-active $service_name && return 0 ; }
+function service_is_enabled() { service_name="$1" ; systemctl is-enabled $service_name && return 0 ; }
+function service_enable_start() {
+    service_name="$1"
+    loginfo "正在执行 service_enable_start,参数[$@]"
+    current_status=`service_is_active $service_name`
+    if [ "$?" != "0" ] ; then
+        echo "服务 $service_name 状态查看错误!"
+        return 1
+    fi
+    if [ "$current_status" = "active" ] ; then
+        echo "当前 $service_name 服务状态: $current_status , 已经启动激活了"
+        return 0
+    fi 
+    echo -en "启动 $service_name 服务:"
+    sudo systemctl enable --now $service_name
+    echo -e "${BG} `service_is_active $service_name` ${NC}"
+    systemctl status $service_name
+    loginfo "成功执行 service_enable_start"
+}
+
 
 ############# 安装工具部分 #########################################
 
 function install_anaconda() {
-    which anaconda >/dev/null
-    if [ "$?" = "0" ] ; then
-            echo "Anaconda3 is already installed!"
-            return 0
+    loginfo "正在执行 install_anaconda 开始下载安装Anaconda3环境."
+    echo "开始下载安装Anaconda3环境:"
+    which anaconda >/dev/null 2>&1 && echo "Anaconda3已经安装过了!" && return 1
+    echo "开始下载安装Anaconda3环境:"
+    tmp_file=/tmp/.anaconda.html
+    curl -o $tmp_file -sSL https://repo.anaconda.com/archive/
+    if [ "$?" != "0" ] ; then
+        echo -e "你的网络有问题!无法访问Anaconda网站"
+        return 1
     fi
-    # install anaconda python environment
-    anaconda_file=`curl -L https://repo.anaconda.com/archive/ | awk -F'\"' '/Linux-x86_64.sh/{print $2}'|head -1`
-    
+    anaconda_file=`awk -F'\"' '/Linux-x86_64.sh/{print $2}' $tmp_file |head -1`
+    anaconda_size=`grep -A2 'Linux-x86_64.sh' $tmp_file |sed -n 's/\W*<td[^>]*>//g;s/<\/td>//g;2p'`
+    anaconda_date=`grep -A3 'Linux-x86_64.sh' $tmp_file |sed -n 's/\W*<td[^>]*>//g;s/<\/td>//g;3p'`
+    loginfo "url: $anaconda_file ,size: $anaconda_size ,date: $anaconda_date"
     if [ -f "/tmp/$anaconda_file" ] ; then
-        redr_line "文件已经下载过了, 是否重新下载?"
+        echo -en "${RED}提醒：文件已经下载过了!${NC}"
     fi
-    prompt "开始下载 Anaconda3... :[/tmp/$anaconda_file], file size : 500MB+"
+    prompt "下载Anaconda3安装包(文件预计 $anaconda_size, date:$anaconda_date )"
     if [ "$?" = "0" ] ; then
         curl -o /tmp/$anaconda_file -L https://repo.anaconda.com/archive/$anaconda_file
     fi
-    python_install_path="$HOME/anaconda3"       # Python3 默认安装路径
-    prompt "开始安装 Anaconda3...(默认安装位置为： ${python_install_path})"
-    if [ "$?" != "0"] ; then
-        read -p "请输入自定义安装目录:" tmp_input
-        if [ "$tmp_input" != "" -a  -r `basename $tmp_input` ] ; then
-            python_install_path=$tmp_input
-        else
-            echo "无效目录[$tmp_input]，已经使用默认目录[$python_install_path]安装"
-            return 1
-        fi
+    default_python_install_path="$HOME/anaconda3"       # Python3 默认安装路径
+    prompt "开始安装 Anaconda3...(默认安装位置为： ${default_python_install_path})"
+    if [ "$?" != "0" ] ; then
+        read -p "请输入自定义安装目录:" python_install_path
+    else
+        python_install_path=$default_python_install_path
     fi
+    if [ "$python_install_path" != "" -a  ! -r "$python_install_path" ] ; then
+        echo "安装目录检查正常!"
+    else
+        [[ -r "$python_install_path" ]] && redr_line "目录 $python_install_path 已经存在,确保目录不存在以免错误设置覆盖数据!" && return 2
+        echo "无效目录[$python_install_path],请重新选择有效安装路径。"
+        return 3
+    fi
+    loginfo "安装路径: $python_install_path"
+    # 安装前检查磁盘空间
+    reserve_size="8196" # 8GB预留
+    disk_check_usage `dirname ${python_install_path}` $reserve_size
+    [[ "$?" != "0" ]] && return 4
+
     sh /tmp/$anaconda_file -p ${python_install_path} -b
     . ${python_install_path}/etc/profile.d/conda.sh
     # 检测当前使用的shell是什么bash/zsh等
@@ -199,9 +261,10 @@ function install_anaconda() {
     conda init `basename $SHELL`
     white_line "Anaconda3 安装完成! 当前默认Python版本为:"
     ${python_install_path}/bin/python3 --version
+    loginfo "成功执行 install_anaconda ."
 }
 function install_ohmyzsh() {
-    
+    loginfo "正在执行 install_ohmyzsh"
     [[ -r "$HOME/.oh-my-zsh" ]] && whiter_line "已经安装过 ohmyzsh 环境了" && return 0
     sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     [[ "$?" = "0" ]]  || (redr_line "安装ohmyzsh失败了!! 看看报错信息! 稍后重新安装试试!"  && return 1)
@@ -215,9 +278,11 @@ function install_ohmyzsh() {
 
     echo -e "设置默认主题为: $BG agnoster $NC" && sed -i 's/ZSH_THEME="robbyrussell"/ZSH_THEME="agnoster"/' $HOME/.zshrc
     echo -e "设置默认编辑器为 $BG vi $NC:" && echo "set -o vi"  >> $HOME/.zshrc
-    echo -e "$BG 安装ohmyzsh成功!$NC 重新登录一次即可生效!"
+    echo -e "$BG 安装ohmyzsh成功!$NC 重新登录或打开新Terminal即可生效!"
+    loginfo "成功执行 install_ohmyzsh , $BG 安装ohmyzsh成功!$NC 重新登录或打开新Terminal即可生效!"
 }
 function install_tmux() {  # Terminal终端会话管理工具,类似Screen
+    loginfo "正在执行 install_tmux"
     which tmux >/dev/null && ! prompt "已经安装过 tmux ，继续安装?" && return 0
     # basic config with plugin
     config_data="CiPorr7nva7liY3nvIDkuLpDdHJsICsgYQojIHNldCAtZyBwcmVmaXggQy1hCiPop6PpmaRDdHJsK2Ig5LiO5YmN57yA55qE5a+55bqU5YWz57O7CiMgdW5iaW5kIEMtYgoKCiPlsIZyIOiuvue9ruS4uuWKoOi9vemFjee9ruaWh+S7tu+8jOW5tuaYvuekuiJyZWxvYWRlZCEi5L+h5oGvCmJpbmQgciBzb3VyY2UtZmlsZSB+Ly50bXV4LmNvbmYgXDsgZGlzcGxheSAiUmVsb2FkZWQhIgoKCgojdXAKYmluZC1rZXkgayBzZWxlY3QtcGFuZSAtVQojZG93bgpiaW5kLWtleSBqIHNlbGVjdC1wYW5lIC1ECiNsZWZ0CmJpbmQta2V5IGggc2VsZWN0LXBhbmUgLUwKI3JpZ2h0CmJpbmQta2V5IGwgc2VsZWN0LXBhbmUgLVIKCiNzZWxlY3QgbGFzdCB3aW5kb3cKYmluZC1rZXkgQy1sIHNlbGVjdC13aW5kb3cgLWwKCiMjIGznmoTnjrDlnKjnmoTnu4TlkIjplK7vvJogQ3RybCt4IGzmmK/liIfmjaLpnaLmnb/vvIxDdHJsK3ggQ3RybCts5YiH5o2i56qX5Y+j77yMQ3RybCts5riF5bGPCgoj5L2/5b2T5YmNcGFuZSDmnIDlpKfljJYKIyB6b29tIHBhbmUgPC0+IHdpbmRvdwojaHR0cDovL3RtdXguc3ZuLnNvdXJjZWZvcmdlLm5ldC92aWV3dmMvdG11eC90cnVuay9leGFtcGxlcy90bXV4LXpvb20uc2gKIyBiaW5kIF56IHJ1biAidG11eC16b29tIgojIwoKI2NvcHktbW9kZSDlsIblv6vmjbfplK7orr7nva7kuLp2aSDmqKHlvI8Kc2V0dyAtZyBtb2RlLWtleXMgdmkKIyBzZXQgc2hlbGwKc2V0IC1nIGRlZmF1bHQtc2hlbGwgL2Jpbi96c2gKCgoKIyBwcmVmaXggKyBJKOWkp+WGmSkgOiDlronoo4Xmj5Lku7YKIyBwcmVmaXggKyBVKOWkp+WGmSkgOiDmm7TmlrDmj5Lku7YKIyBwcmVmaXggKyBhbHQgKyB1IDog5riF55CG5o+S5Lu2KOS4jeWcqHBsdWdpbiBsaXN05LitKQojIHByZWZpeCArIEN0cmwtcyAtIHNhdmUKIyBwcmVmaXggKyBDdHJsLXIgLSByZXN0b3JlCgojIOS8muivneeuoeeQhuaPkuS7tgoKc2V0IC1nIEBwbHVnaW4gJ3RtdXgtcGx1Z2lucy90cG0nCnNldCAtZyBAcGx1Z2luICd0bXV4LXBsdWdpbnMvdG11eC1yZXN1cnJlY3QnCnNldCAtZyBAcGx1Z2luICd0bXV4LXBsdWdpbnMvdG11eC1jb250aW51dW0nCgpzZXQgLWcgQGNvbnRpbnV1bS1zYXZlLWludGVydmFsICcxNScKc2V0IC1nIEBjb250aW51dW0tcmVzdG9yZSAnb24nCnNldCAtZyBAcmVzdXJyZWN0LWNhcHR1cmUtcGFuZS1jb250ZW50cyAnb24nCiMKIyBPdGhlciBjb25maWcgLi4uCgpydW4gLWIgJ34vLnRtdXgvcGx1Z2lucy90cG0vdHBtJwoK"
@@ -231,6 +296,7 @@ function install_tmux() {  # Terminal终端会话管理工具,类似Screen
     git clone https://github.com/tmux-plugins/tmux-continuum.git
 
     echo $config_data | base64 -d  > $HOME/.tmux.conf
+    loginfo "成功执行 install_tmux"
 }
 
 function show_menu_install() {
@@ -261,7 +327,7 @@ function config_langpack() {  # 中文语言支持 zh_CN.UTF-8
     local_charset="zh_CN.UTF-8" # 字符集名称
     charset_name="zh_CN.utf8"   # Linux系统使用的是没有-的写法(只是写法差别)
     greenr_line "中文语言支持 $local_charset"
-
+    loginfo "正在执行 config_langpack ,支持 $local_charset 字符集"
     locale -a | grep -Ei "$local_charset|$charset_name" >/dev/null
     if [ "$?" != "0" ] ; then
         case "$os_type" in
@@ -290,19 +356,23 @@ function config_langpack() {  # 中文语言支持 zh_CN.UTF-8
     local_name=`locale -a | grep -Ei "$local_charset|$charset_name"`
     [[ -f "$shprofile" ]] && echo export LC_ALL="$local_name" >> ${shprofile}
     echo "在当前SHELL环境下执行  export LC_ALL=$local_name  立即生效."
-    # 修改系统默认字符集(可选)
-    # sudo localectl set-locale LANG=$local_name
+    loginfo "成功执行 config_langpack ."
 }
+
 function config_sshd() { # 开启SSH服务
+    loginfo "正在执行 config_sshd"
     case "$os_type" in
         manjaro|opensuse*|ubuntu|debian|almalinux|centos)
-            sudo systemctl enable --now sshd   ;;
+            service_enable_start "sshd"
+            ;;
         *)
-            redr_line "未知的系统类型!"
+            redr_line "未知的系统类型! os_type:$os_type"
             ;;
     esac
+    loginfo "成功执行 config_sshd"
 }
 function config_source() { # 配置软件源为国内源(清华大学源速度更快，支持IPv6)
+    loginfo "正在执行 config_source"
     case "$os_type" in
         centos)
             if [ "${os_version:0:1}" -lt "8" ] ; then
@@ -381,9 +451,11 @@ function config_source() { # 配置软件源为国内源(清华大学源速度�
         *)
             redr_line "不支持的系统类型!暂时无法支持!"
             return 1
-        esac
+    esac
+    loginfo "成功执行 config_source"
 }
 function config_user() {  # 添加管理员用户
+    loginfo "正在执行 config_user"
     read -p "`echo_green 输入用户名称:`" user_name
     [[ "$user_name" = "" ]] && echo "您没有输入的用户名字!" && exit 1
 
@@ -421,8 +493,10 @@ function config_user() {  # 添加管理员用户
     [[ "$str_ssh_pub_key" != "" && "${str_ssh_pub_key:0:7}" = "ssh-rsa" ]] \
     && sudo su - $user_name -c  "echo '$str_ssh_pub_key' >> $auth_file && chmod 0600 $auth_file" \
     && echo "`echo_green 恭喜您` 已经添加公钥成功!"
+    loginfo "成功执行 config_user"
 }
 function config_machine_id() {  # 生成 machine_id 唯一信息(从模板克隆主机时会有相同id情况，导致网络分配识别等问题)
+    loginfo "正在执行 config_machine_id"
     prompt "确定重新生成 machine_id(${BG}会影响购买激活的软件${NC})"
     if [ "$?" != "0" ] ; then
         echo "已经取消 machine_id 生成任务"
@@ -430,11 +504,14 @@ function config_machine_id() {  # 生成 machine_id 唯一信息(从模板克隆
     fi
     white_line "开始生成新的 machine_id :"
     id_file=/etc/machine-id
+    loginfo "记录上一次的 machine-id : `cat $id_file`"
     sudo rm -f $id_file
     sudo dbus-uuidgen --ensure=$id_file
     echo "生成 machine_id: `cat $id_file`"
+    loginfo "成功执行 config_machine_id, 新的machine-id : `cat $id_file`"
 }
 function config_hostid() { # 生成 hostid 唯一信息(根据网卡ip生成)
+    loginfo "正在执行 config_hostid, 当前 hostid=`hostid`"
     myipv4=`ip a s | awk '/inet / && /global/{ print $2 }'|sed 's/\/.*//g'`
     echo -e "当前全局的IPv4地址: ${BG}${myipv4}${NC} ,开始生成 /etc/hostid"
     ip1=`echo ${myipv4} | cut -d. -f1 | xargs printf "%x"`
@@ -444,6 +521,7 @@ function config_hostid() { # 生成 hostid 唯一信息(根据网卡ip生成)
     # 注意hostid写入的顺序
     sudo sh -c "printf '\x${ip3}\x${ip4}\x${ip1}\x${ip2}' > /etc/hostid"
     echo -e "生成后的hostid : $TC`hostid`$NC"
+    loginfo "成功执行 config_hostid, 新hostid=$TC`hostid`$NC"
 }
 
 
@@ -536,4 +614,3 @@ else  # 命令执行模式(执行后退出)
 fi
 
 menu_head "$TC ${SEE_YOU} $NC"
-menu_tail
