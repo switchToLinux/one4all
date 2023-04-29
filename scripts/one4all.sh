@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 ########################################################################
 # File Name: one4all.sh
 # Author: Awkee
