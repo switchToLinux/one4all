@@ -601,13 +601,11 @@ function show_menu_main() {
     menu_item 1 安装命令工具
     menu_item 2 安装图形界面工具
     menu_item 3 安装编程开发环境
-    menu_item 4 Null
-    echo $line_feed
+    menu_tail
     menu_item c 配置终端环境
     menu_item d 配置桌面主题
     menu_item g 安装显卡相关
-    menu_item e Null
-    echo $line_feed
+    menu_tail
     menu_item q 退出
     menu_tail
 }
