@@ -67,8 +67,8 @@ function menu_tail() { [[ "$item_index" != "0" ]] && echo "|" ; echo $line_feed 
 function println() { menu_item "$@" ; }
 # 日志记录
 log_file="/tmp/one4all.log"
-function loginfo() { echo -e "$(date +'%Y年%m月%d日%H:%M:%S'):INFO: $@" >> $log_file ; }
-function logerr()  { echo -e "$(date +'%Y年%m月%d日%H:%M:%S'):ERROR: $@" >> $log_file ; }
+function loginfo() { echo -e "$(date +'%Y年%m月%d日%H:%M:%S'):INFO: $@"  | tee -a $log_file ; }
+function logerr()  { echo -e "$(date +'%Y年%m月%d日%H:%M:%S'):ERROR: $@" | tee -a $log_file ; }
 
 ################################################################
 #  文本信息设定
@@ -158,15 +158,35 @@ function common_install_command() {
     loginfo "正在执行 common_install_command:参数 cmd=$1 ,url=$2"
     which $str_cmd >/dev/null && whiter_line "$str_cmd 命令已经安装了" && return 1
     read -p "设置安装位置(默认目录:/usr/local/bin):" str_path
-    [[ ! -d "$str_path" ]] && echo "$str_path 目录不存在, 使用默认目录 /usr/local/bin :" && str_path="/usr/local/bin"
+    [[ ! -d "$str_path" ]] && loginfo "$str_path 目录不存在, 使用默认目录 /usr/local/bin :" && str_path="/usr/local/bin"
     $str_file="$str_path/$str_cmd"
     curl -o /tmp/${str_cmd}.tmp -L $str_url
-    [[ "$?" != "0" ]] && echo -e "${RED}下载失败!分析原因后再试吧.${TC}" && return 1
+    [[ "$?" != "0" ]] && logerr "${RED}下载失败!分析原因后再试吧.${TC}" && return 1
     mv /tmp/${str_cmd}.tmp $str_file && chmod +x $str_file
-    if [ "$?" != "0" ] ; then
-        sudo mv /tmp/${str_cmd}.tmp $str_file && sudo chmod +x $str_file
-    fi
+    # 权限问题失败
+    [[ "$?" != "0" ]] && sudo mv /tmp/${str_cmd}.tmp $str_file && sudo chmod +x $str_file
     loginfo "成功安装 $str_cmd 安装路径: $str_file"
+}
+# 下载 github latest 文件
+function common_download_github_latest() {
+    owner="$1"
+    repo="$2"
+    tmp_path="$3"  # 存放目录
+    filter="${4:-linux-x86_64}"
+    loginfo "开始执行 common_download_github_latest, 参数[$@]"
+    [[ "$#" -lt "3" ]] && logerr "参数数量错误,至少三个参数 owner repo tmp_path" && return 1
+    mkdir -p "${tmp_path}"
+    url=`curl -sSL https://api.github.com/repos/${owner}/${repo}/releases/latest | awk -F \" "/browser_download_url/ && /$filter/{print $(NF-1)}"`
+    str_base="`basename $url`"  # 压缩文件名(内部是文件或文件夹),因此安装规则无法标准化，只进行解压缩到 tmp_path 之后交给调用者操作    
+    curl -o /tmp/${str_base} -L ${url}
+    [[ "$?" != "0" ]] && logerr "下载Github latest包出错了, 解决网络问题再试试吧" && return 1
+    
+    echo $str_base | grep -E "tar.gz|.tgz|.gz|tar.bz2|.bz2|tar.xz|.xz" >/dev/null
+    [[ "$?" != "0" ]] && logerr "不识别的压缩文件包后缀[$str_base]" && return 2
+    
+    tar axvf /tmp/$str_base -C $tmp_path  &&  loginfo "解压缩 $str_base 文件到 $tmp_path 目录成功"
+    [[ "$?" != "0" ]] && logerr "解压失败! 是否下载文件已损坏或者压缩格式不正确?" && return 3
+    loginfo "成功执行 common_download_github_latest"
 }
 # 磁盘空间检测： disk_check_usage path reserve_size
 function disk_check_usage() {
@@ -178,13 +198,9 @@ function disk_check_usage() {
     
     # 剩余磁盘空间-512M(预留512MB,避免磁盘占满)
     remain_size=`df -m $str_path | awk '/dev/{ print $4-512 }'`
-    if [ "$reserve_size" -gt "$remain_size" ] ; then
-        str_msg="剩余空间不足 $remain_size MB ,需要预留空间为 $reserve_size MB"
-        redr_line "$str_msg"  &&  logerr "$str_msg"
-        return 3
-    fi
-    str_msg="磁盘空间符合要求,剩余空间 $remain_size MB ,需要预留空间为 $reserve_size MB"
-    echo "$str_msg"   && loginfo "$str_msg"
+    [[ "$reserve_size" -gt "$remain_size" ]]  && logerr "剩余空间不足 $remain_size MB ,需要预留空间为 $reserve_size MB" && return 3
+
+    loginfo "磁盘空间符合要求,剩余空间 $remain_size MB ,需要预留空间为 $reserve_size MB"
     return 0
 }
 
@@ -194,17 +210,11 @@ function service_enable_start() {
     service_name="$1"
     loginfo "正在执行 service_enable_start,参数[$@]"
     current_status=`service_is_active $service_name`
-    if [ "$?" != "0" ] ; then
-        echo "服务 $service_name 状态查看错误!"
-        return 1
-    fi
-    if [ "$current_status" = "active" ] ; then
-        echo "当前 $service_name 服务状态: $current_status , 已经启动激活了"
-        return 0
-    fi 
-    echo -en "启动 $service_name 服务:"
+    [[ "$?" != "0" ]] && logerr "服务 $service_name 状态查看错误!" && return 1
+    [[ "$current_status" = "active" ]] && loginfo "当前 $service_name 服务状态: $current_status , 已经启动激活过了,不用重复启动了" && return 0
+    
     sudo systemctl enable --now $service_name
-    echo -e "${BG} `service_is_active $service_name` ${NC}"
+    loginfo "启动 $service_name 服务: ${BG} `service_is_active $service_name` ${NC}"
     systemctl status $service_name
     loginfo "成功执行 service_enable_start"
 }
@@ -214,15 +224,11 @@ function service_enable_start() {
 
 function install_anaconda() {
     loginfo "正在执行 install_anaconda 开始下载安装Anaconda3环境."
-    echo "开始下载安装Anaconda3环境:"
-    which anaconda >/dev/null 2>&1 && echo "Anaconda3已经安装过了!" && return 1
-    echo "开始下载安装Anaconda3环境:"
+    which anaconda >/dev/null 2>&1 && loginfo "Anaconda3已经安装过了!" && return 1
     tmp_file=/tmp/.anaconda.html
     curl -o $tmp_file -sSL https://repo.anaconda.com/archive/
-    if [ "$?" != "0" ] ; then
-        echo -e "你的网络有问题!无法访问Anaconda网站"
-        return 1
-    fi
+    [[ "$?" != "0" ]]  && loginfo "你的网络有问题!无法访问Anaconda网站" && return 1
+
     anaconda_file=`awk -F'\"' '/Linux-x86_64.sh/{print $2}' $tmp_file |head -1`
     anaconda_size=`grep -A2 'Linux-x86_64.sh' $tmp_file |sed -n 's/\W*<td[^>]*>//g;s/<\/td>//g;2p'`
     anaconda_date=`grep -A3 'Linux-x86_64.sh' $tmp_file |sed -n 's/\W*<td[^>]*>//g;s/<\/td>//g;3p'`
@@ -230,10 +236,9 @@ function install_anaconda() {
     if [ -f "/tmp/$anaconda_file" ] ; then
         echo -en "${RED}提醒：文件已经下载过了!${NC}"
     fi
-    prompt "下载Anaconda3安装包(文件预计 $anaconda_size, date:$anaconda_date )"
-    if [ "$?" = "0" ] ; then
-        curl -o /tmp/$anaconda_file -L https://repo.anaconda.com/archive/$anaconda_file
-    fi
+    prompt "下载Anaconda3安装包(文件预计 $anaconda_size, date:$anaconda_date)"
+    [[ "$?" == "0" ]] && curl -o /tmp/$anaconda_file -L https://repo.anaconda.com/archive/$anaconda_file
+
     default_python_install_path="$HOME/anaconda3"       # Python3 默认安装路径
     prompt "开始安装 Anaconda3...(默认安装位置为： ${default_python_install_path})"
     if [ "$?" != "0" ] ; then
@@ -242,13 +247,12 @@ function install_anaconda() {
         python_install_path=$default_python_install_path
     fi
     if [ "$python_install_path" != "" -a  ! -r "$python_install_path" ] ; then
-        echo "安装目录检查正常!"
+        loginfo "安装路径 $python_install_path 检查正常!"
     else
-        [[ -r "$python_install_path" ]] && redr_line "目录 $python_install_path 已经存在,确保目录不存在以免错误设置覆盖数据!" && return 2
-        echo "无效目录[$python_install_path],请重新选择有效安装路径。"
+        [[ -r "$python_install_path" ]] && logerr "目录 $python_install_path 已经存在,确保目录不存在以免错误设置覆盖数据!" && return 2
+        loginfo "无效目录[$python_install_path],请重新选择有效安装路径。"
         return 3
     fi
-    loginfo "安装路径: $python_install_path"
     # 安装前检查磁盘空间
     reserve_size="8196" # 8GB预留
     disk_check_usage `dirname ${python_install_path}` $reserve_size
@@ -257,28 +261,26 @@ function install_anaconda() {
     sh /tmp/$anaconda_file -p ${python_install_path} -b
     . ${python_install_path}/etc/profile.d/conda.sh
     # 检测当前使用的shell是什么bash/zsh等
-    white_line "检测到当前正在使用 `basename $SHELL` Shell环境,为您自动添加Anaconda3的配置信息"
+    loginfo "检测到当前正在使用 `basename $SHELL` Shell环境,为您自动添加Anaconda3的配置信息"
     conda init `basename $SHELL`
-    white_line "Anaconda3 安装完成! 当前默认Python版本为:"
-    ${python_install_path}/bin/python3 --version
+    loginfo "Anaconda3 安装完成! 当前默认Python版本为: `${python_install_path}/bin/python3 --version`"
     loginfo "成功执行 install_anaconda ."
 }
 function install_ohmyzsh() {
     loginfo "正在执行 install_ohmyzsh"
-    [[ -r "$HOME/.oh-my-zsh" ]] && whiter_line "已经安装过 ohmyzsh 环境了" && return 0
+    [[ -r "$HOME/.oh-my-zsh" ]] && loginfo "已经安装过 ohmyzsh 环境了" && return 0
     sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     [[ "$?" = "0" ]]  || (redr_line "安装ohmyzsh失败了!! 看看报错信息! 稍后重新安装试试!"  && return 1)
 
-    whiter_line "安装Powerline字体"
+    loginfo "开始安装Powerline字体"
     # clone
     font_tmp_dir=/tmp/zsh_fonts
     git clone https://github.com/powerline/fonts.git --depth=1 $font_tmp_dir
     # install
     cd $font_tmp_dir && sh ./install.sh && cd - && rm -rf $font_tmp_dir
 
-    echo -e "设置默认主题为: $BG agnoster $NC" && sed -i 's/ZSH_THEME="robbyrussell"/ZSH_THEME="agnoster"/' $HOME/.zshrc
-    echo -e "设置默认编辑器为 $BG vi $NC:" && echo "set -o vi"  >> $HOME/.zshrc
-    echo -e "$BG 安装ohmyzsh成功!$NC 重新登录或打开新Terminal即可生效!"
+    logginfo "设置默认主题为: $BG agnoster $NC(主题列表命令: omz theme list , 设置 random 随机主题也不错 )"
+    sed -i 's/ZSH_THEME="robbyrussell"/ZSH_THEME="agnoster"/' $HOME/.zshrc
     loginfo "成功执行 install_ohmyzsh , $BG 安装ohmyzsh成功!$NC 重新登录或打开新Terminal即可生效!"
 }
 function install_tmux() {  # Terminal终端会话管理工具,类似Screen
@@ -298,12 +300,50 @@ function install_tmux() {  # Terminal终端会话管理工具,类似Screen
     echo $config_data | base64 -d  > $HOME/.tmux.conf
     loginfo "成功执行 install_tmux"
 }
+function install_ctags() {
+    # 源码编译
+    loginfo "开始执行 install_ctags"
+    [[ -x /usr/bin/ctags ]] && loginfo "ctags 已经安装了" && ctags --version && return 0
+    tmp_path="/tmp/universal-ctags"
+    git clone https://github.com/universal-ctags/ctags.git $tmp_path
+    cd $tmp_path && ./autogen.sh && ./configure --prefix=/usr && make && sudo make install && cd - && rm -rf $tmp_path
+    if [ "$?" != "0" ] ; then
+        loginfo "可能您缺少编译相关命令工具导致编译失败,安装Github自动编译的版本:"
+        common_download_github_latest universal-ctags ctags-nightly-build $tmp_path
+        [[ "$?" != "0" ]] && logerr "下载 ctags 预编译可执行程序失败! 安装ctags 失败." && return 1
+        sudo cp $tmp_path/uctags*/bin/* /usr/bin/
+    fi
+    ctags --version
+    [[ "$?" != "0" ]] && logerr "安装没成功，ctags 命令执行失败." && return 1
+    rm -rf $tmp_path
+    loginfo "成功执行 install_ctags"
+}
+function install_vim() {
+    # 配置 vim 
+    prompt "开始安装VIM"
+    if [ "$?" != "0" ]; then
+        return 0
+    fi
+    sudo $pac_cmd_ins  vim
+    # 配置 .vimrc 文件base64数据模板
+    config_data="IiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiCiIKIiBWSU0g5L2/55So5biu5Yqp77yaCiIgICDlv6vmjbfplK7vvJoKIiAgICAgICBGMSA6IOabtOaWsEYy5omT5byA55qEVGFn5qCH6K6w5YiX6KGoCiIgICAgICAgRjIgOiDmiZPlvIDku6PnoIF0YWfmoIforrDliJfooago546w5a6e5Ye95pWw5oiW6ICF5Y+Y6YeP5qCH6K6wKQoiICAgICAgIEYzIDog5pi+56S65b2T5YmN5paH5Lu255qE55uu5b2V5L+h5oGvCiIgICAgICAgRjUgOiDov5DooYxQeXRob24z5Luj56CBCiIgICAgICAgRjkgOiDpopzoibLmmL7npLrku6PnoIEKIiAgICAgICBGMTA6IOaKmOWPoC/miZPlvIDku6PnoIHlnZcKIiAgIFNwbGl0Vmlld+W/q+aNt+WRveS7pO+8mgoiICAgICAgdHN2IDog5LiK5LiL5YiG5bGP5omT5byA5paH5Lu2CiIgICAgICB0dnMgOiDlt6blj7PliIblsY/miZPlvIDmlofku7YKIiAgIEN0cmwraCA6IOWIh+aNouW3puS+p+WIhuWxjwoiICAgQ3RybCtsIDog5YiH5o2i5Y+z5L6n5YiG5bGPCiIgICBDdHJsK2ogOiDliIfmjaLkuIvkvqfliIblsY8KIiAgIEN0cmwrayA6IOWIh+aNouS4iuS+p+WIhuWxjwoiCiIgICBUYWLpobXlr7zoiKrlv6vmjbfplK46CiIgICAgICAgdG4gOiDkuIvkuIB0YWLpobUKIiAgICAgICB0cCA6IOS4iuS4gHRhYumhtQoiICAgICAgIHRjIDog5YWz6Zet5b2T5YmNdGFi6aG1CiIgICAgICAgdG0gOiDlvZPliY10YWLpobXnp7vliqjmlbDlrZd45qyhKOi0n+aVsOihqOekuuWPjeWQkeenu+WKqCkKIiAgICAgICB0dCA6IOaWsOaJk+W8gHRhYumhtQoiICAgICAgIHRzIDog5L2/55So5b2T5YmNdGFi6aG15paH5Lu25paw5omT5byA5LiA5LiqdGFi6aG1CiIKIiAgIOS7o+eggee8lui+kea3u+WKoOm7mOiupOazqOmHiuWktOmDqOS/oeaBryjmlK/mjIFiYXNo44CBcHl0aG9u44CBY3Bw44CBY+S7o+eggeaWh+S7tikKIgoiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIKCnNldCBub2NvbXBhdGlibGUgICAgICAgICAgICAgICIgcmVxdWlyZWQKZmlsZXR5cGUgcGx1Z2luIG9mZgpmaWxldHlwZSBpbmRlbnQgb24KCgoiIHNldCB0aGUgcnVudGltZSBwYXRoIHRvIGluY2x1ZGUgVnVuZGxlIGFuZCBpbml0aWFsaXplCnNldCBydHArPX4vLnZpbS9idW5kbGUvVnVuZGxlLnZpbQpjYWxsIHZ1bmRsZSNiZWdpbigpCgoiIGFsdGVybmF0aXZlbHksIHBhc3MgYSBwYXRoIHdoZXJlIFZ1bmRsZSBzaG91bGQgaW5zdGFsbCBwbHVnaW5zCiJjYWxsIHZ1bmRsZSNiZWdpbignfi9zb21lL3BhdGgvaGVyZScpCgoiIGxldCBWdW5kbGUgbWFuYWdlIFZ1bmRsZSwgcmVxdWlyZWQKUGx1Z2luICdnbWFyaWsvVnVuZGxlLnZpbScKUGx1Z2luICdUYXNrTGlzdC52aW0nClBsdWdpbiAndmltLXN5bnRhc3RpYy9zeW50YXN0aWMnClBsdWdpbiAnbnZpZS92aW0tZmxha2U4JwpQbHVnaW4gJ2pudXJtaW5lL1plbmJ1cm4nClBsdWdpbiAnYWx0ZXJjYXRpb24vdmltLWNvbG9ycy1zb2xhcml6ZWQnClBsdWdpbiAnamlzdHIvdmltLW5lcmR0cmVlLXRhYnMnClBsdWdpbiAnc2Nyb29sb29zZS9uZXJkdHJlZScKUGx1Z2luICd0cG9wZS92aW0tZnVnaXRpdmUnICJHaXQgSW50ZWdyYXRpb24KUGx1Z2luICd2aW0tc2NyaXB0cy9pbmRlbnRweXRob24udmltJwpQbHVnaW4gJ0xva2FsdG9nL3Bvd2VybGluZScsIHsncnRwJzogJ3Bvd2VybGluZS9iaW5kaW5ncy92aW0vJ30KUGx1Z2luICd0YWJwYWdlY29sb3JzY2hlbWUnClBsdWdpbiAndGFnbGlzdC52aW0nClBsdWdpbiAndGFnbGlzdC1wbHVzJwpQbHVnaW4gJ29sbHlrZWwvdi12aW0nClBsdWdpbiAnUHl0aG9uLW1vZGUta2xlbicKUGx1Z2luICdydXN0LWxhbmcvcnVzdC52aW0nCiJQbHVnaW4gJ3dha2F0aW1lL3ZpbS13YWthdGltZScKCgoiIGFkZCBhbGwgeW91ciBwbHVnaW5zIGhlcmUgKG5vdGUgb2xkZXIgdmVyc2lvbnMgb2YgVnVuZGxlCiIgdXNlZCBCdW5kbGUgaW5zdGVhZCBvZiBQbHVnaW4pCgoiQnVuZGxlICdWYWxsb3JpYy9Zb3VDb21wbGV0ZU1lJwoKCgoiIEFsbCBvZiB5b3VyIFBsdWdpbnMgbXVzdCBiZSBhZGRlZCBiZWZvcmUgdGhlIGZvbGxvd2luZyBsaW5lCmNhbGwgdnVuZGxlI2VuZCgpICAgICAgICAgICAgIiByZXF1aXJlZAoKCnNldCBlbmNvZGluZz11dGYtOAoKc2V0IGZlbmNzPXV0Zi04LHVjcy1ib20sc2hpZnQtamlzLGdiMTgwMzAsZ2JrLGdiMjMxMixjcDkzNgoKc2V0IHRlcm1lbmNvZGluZz11dGYtOAoKc2V0IGZpbGVlbmNvZGluZ3M9dWNzLWJvbSx1dGYtOCxjcDkzNgoKc2V0IGZpbGVlbmNvZGluZz11dGYtOAoKCnNldCBzcGxpdGJlbG93CnNldCBzcGxpdHJpZ2h0Cgoic3BsaXQgbmF2aWdhdGlvbnMKbm5vcmVtYXAgPEMtSj4gPEMtVz48Qy1KPgpubm9yZW1hcCA8Qy1LPiA8Qy1XPjxDLUs+Cm5ub3JlbWFwIDxDLUw+IDxDLVc+PEMtTD4Kbm5vcmVtYXAgPEMtSD4gPEMtVz48Qy1IPgoKCiIgIyMgZGVmaW5lIGxhbmd1YWdlIGNvbmZpZ3VyYXRpb24gCgoiIyJWIGxhbmd1YWdlIGNvbmZpZ3VyZQoiI2xldCBnOnZfaGlnaGxpZ2h0X2FycmF5X3doaXRlc3BhY2VfZXJyb3IgPSAwCiIjbGV0IGc6dl9oaWdobGlnaHRfY2hhbl93aGl0ZXNwYWNlX2Vycm9yID0gMAoiI2xldCBnOnZfaGlnaGxpZ2h0X3NwYWNlX3RhYl9lcnJvciA9IDAKIiNsZXQgZzp2X2hpZ2hsaWdodF90cmFpbGluZ193aGl0ZXNwYWNlX2Vycm9yID0gMAoiI2xldCBnOnZfaGlnaGxpZ2h0X2Z1bmN0aW9uX2NhbGxzID0gMAoiI2xldCBnOnZfaGlnaGxpZ2h0X2ZpZWxkcyA9IDAKCgoiIyBtYXJrZG93biBmb2xkaW5nICMKImxldCBnOnZpbV9tYXJrZG93bl9mb2xkaW5nX3N0eWxlX3B5dGhvbmljID0gMQoibGV0IGc6dmltX21hcmtkb3duX2ZvbGRpbmdfbGV2ZWwgPSAyCiJsZXQgZzp2aW1fbWFya2Rvd25fb3ZlcnJpZGVfZm9sZHRleHQgPSAwCiJsZXQgZzp2aW1fbWFya2Rvd25fdG9jX2F1dG9maXQgPSAxCgoKIiBQeXRob27or63ms5Xpq5jkuq4gCmxldCBweXRob25faGlnaGxpZ2h0X2FsbD0xCnN5bnRheCBvbgoKaWYgaGFzKCdndWlfcnVubmluZycpCiAgc2V0IGJhY2tncm91bmQ9ZGFyawogIGNvbG9yc2NoZW1lIHNvbGFyaXplZAplbHNlCiAgY29sb3JzY2hlbWUgemVuYnVybgplbmRpZgoKY2FsbCB0b2dnbGViZyNtYXAoIjxGOT4iKQoKIiBFbmFibGUgZm9sZGluZwpzZXQgZm9sZG1ldGhvZD1tYW51YWwKc2V0IGZvbGRuZXN0bWF4PTEwCnNldCBub2ZvbGRlbmFibGUKc2V0IGZvbGRsZXZlbD05OQpzZXQgZm9sZGNvbHVtbj0zCm1hcCA8RjEwPiA6c2V0IGZvbGRtZXRob2Q9bWFudWFsPENSPnphCgpzZXQgbWFnaWMKc2V0IGNvbmZpcm0Kc2V0IG5vYmFja3VwCnNldCBub3N3YXBmaWxlCgoiIOS9v+WbnuagvOmUru+8iGJhY2tzcGFjZe+8ieato+W4uOWkhOeQhmluZGVudCwgZW9sLCBzdGFydOetiQpzZXQgYmFja3NwYWNlPTIKIiDlhYHorrhiYWNrc3BhY2XlkozlhYnmoIfplK7ot6jotorooYzovrnnlYwKc2V0IHdoaWNod3JhcCs9PCw+LGgsbAoKc2V0IG1vdXNlPXYKc2V0IHNlbGVjdGlvbj1leGNsdXNpdmUKc2V0IHNlbGVjdG1vZGU9bW91c2Usa2V5CgoKIiDlkb3ku6TooYzvvIjlnKjnirbmgIHooYzkuIvvvInnmoTpq5jluqbvvIzpu5jorqTkuLox77yM6L+Z6YeM5pivMgpzZXQgY21kaGVpZ2h0PTIKCgoiIOeci+WIsOaKmOWPoOS7o+eggeeahOaWh+aho+Wtl+espuS4sgoibGV0IGc6U2ltcHlsRm9sZF9kb2NzdHJpbmdfcHJldmlldz0xCgoiIOiHquWKqOihpeWFqApsZXQgZzp5Y21fYXV0b2Nsb3NlX3ByZXZpZXdfd2luZG93X2FmdGVyX2NvbXBsZXRpb249MQptYXAgPGxlYWRlcj5nICA6WWNtQ29tcGxldGVyIEdvVG9EZWZpbml0aW9uRWxzZURlY2xhcmF0aW9uPENSPgoKCiIgdGFicyBhbmQgc3BhY2VzIGhhbmRsaW5nCnNldCBleHBhbmR0YWIKc2V0IHRhYnN0b3A9NApzZXQgc29mdHRhYnN0b3A9NApzZXQgc2hpZnR3aWR0aD00CgpzZXQgbnUgIiDmmL7npLrooYzlj7cgCgpzZXQgc3RhdHVzbGluZT0lRiVtJXIlaCV3XCBbRk9STUFUPSV7JmZmfV1cIFtUWVBFPSVZXVwgW1BPUz0lbCwldl1bJXAlJV1cICV7c3RyZnRpbWUoXCIlZC8lbS8leVwgLVwgJUg6JU1cIil9ICAgIueKtuaAgeihjOaYvuekuueahOWGheWuuQpzZXQgbGFzdHN0YXR1cz0yICAgICIg5ZCv5Yqo5pi+56S654q25oCB6KGMKDEpLOaAu+aYr+aYvuekuueKtuaAgeihjCgyKQoKCiIgYnVmZmVyCiIgYnVmZmVyIHNwbGl0dmlldwptYXAgdHN2IDpzdiAKIiBzcGxpdCB2ZXJ0aWNhbGx5Cm1hcCB0dnMgOnZzIAoKIiB0YWIgbmF2aWdhdGlvbiBtYXBwaW5ncwptYXAgdG4gOnRhYm48Q1I+Cm1hcCB0cCA6dGFicDxDUj4KbWFwIHRjIDp0YWJjbG9zZTxDUj4gCm1hcCB0bSA6dGFibSAKbWFwIHR0IDp0YWJuZXcgCm1hcCB0cyA6dGFiIHNwbGl0PENSPgoKImltYXAgPEMtUmlnaHQ+IDxFU0M+OnRhYm48Q1I+CiJpbWFwIDxDLUxlZnQ+ICA8RVNDPjp0YWJwPENSPgoKCmxldCBnOm1pbmlCdWZFeHBsTWFwV2luZG93TmF2VmltID0gMQpsZXQgZzptaW5pQnVmRXhwbE1hcFdpbmRvd05hdkFycm93cyA9IDEKbGV0IGc6bWluaUJ1ZkV4cGxNYXBDVGFiU3dpdGNoQnVmcyA9IDEKbGV0IGc6bWluaUJ1ZkV4cGxNb2RTZWxUYXJnZXQgPSAxCgoiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiCiIgQ1RhZ3PnmoTorr7lrpoKIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIgpsZXQgVGxpc3RfU29ydF9UeXBlID0gIm5hbWUiICAgICIg5oyJ54Wn5ZCN56ew5o6S5bqPCmxldCBUbGlzdF9Vc2VfUmlnaHRfV2luZG93ID0gMSAgIiDlnKjlj7PkvqfmmL7npLrnqpflj6MKbGV0IFRsaXN0X0NvbXBhcnRfRm9ybWF0ID0gMSAgICAiIOWOi+e8qeaWueW8jwpsZXQgVGxpc3RfRXhpc3RfT25seVdpbmRvdyA9IDEgICIg5aaC5p6c5Y+q5pyJ5LiA5LiqYnVmZmVy77yMa2lsbOeql+WPo+S5n2tpbGzmjolidWZmZXIKbGV0IFRsaXN0X0ZpbGVfRm9sZF9BdXRvX0Nsb3NlID0gMCAgIiDkuI3opoHlhbPpl63lhbbku5bmlofku7bnmoR0YWdzCmxldCBUbGlzdF9FbmFibGVfRm9sZF9Db2x1bW4gPSAwICAgICIg5LiN6KaB5pi+56S65oqY5Y+g5qCRCgphdXRvY21kIEZpbGVUeXBlIGphdmEgc2V0IHRhZ3MrPS4vdGFncwphdXRvY21kIEZpbGVUeXBlIGgsY3BwLGNjLGMsZ28gc2V0IHRhZ3MrPS4vdGFncwpsZXQgVGxpc3RfU2hvd19PbmVfRmlsZT0xICAgICAgICAgICAgIuS4jeWQjOaXtuaYvuekuuWkmuS4quaWh+S7tueahHRhZ++8jOWPquaYvuekuuW9k+WJjeaWh+S7tueahAoKIuiuvue9rnRhZ3MKc2V0IHRhZ3M9dGFncwoKIum7mOiupOaJk+W8gFRhZ2xpc3QKbGV0IFRsaXN0X0F1dG9fT3Blbj0wCiIgc2hvdyBwZW5kaW5nIFRhZyBsaXN0Cm1hcCA8RjI+IDpUbGlzdFRvZ2dsZTxDUj4KbWFwIDxGMT4gOlRsaXN0VXBkYXRlPENSPgoKIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiCiIgVGFnIGxpc3QgKGN0YWdzKQoiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIgpsZXQgVGxpc3RfQ3RhZ3NfQ21kID0gJy91c3IvYmluL2N0YWdzJwpsZXQgVGxpc3RfU2hvd19PbmVfRmlsZSA9IDEgIuS4jeWQjOaXtuaYvuekuuWkmuS4quaWh+S7tueahHRhZ++8jOWPquaYvuekuuW9k+WJjeaWh+S7tueahApsZXQgVGxpc3RfRXhpdF9Pbmx5V2luZG93ID0gMSAi5aaC5p6cdGFnbGlzdOeql+WPo+aYr+acgOWQjuS4gOS4queql+WPo++8jOWImemAgOWHunZpbQpsZXQgVGxpc3RfVXNlX1JpZ2h0X1dpbmRvdyA9IDEgIuWcqOWPs+S+p+eql+WPo+S4reaYvuekunRhZ2xpc3Tnqpflj6MKCgoiIOWcqOiiq+WIhuWJsueahOeql+WPo+mXtOaYvuekuuepuueZve+8jOS+v+S6jumYheivuwpzZXQgZmlsbGNoYXJzPXZlcnQ6XCAsc3RsOlwgLHN0bG5jOlwKCiIg6auY5Lqu5pi+56S65Yy56YWN55qE5ous5Y+3CnNldCBzaG93bWF0Y2gKCiIg5aKe5by65qih5byP5Lit55qE5ZG95Luk6KGM6Ieq5Yqo5a6M5oiQ5pON5L2cCnNldCB3aWxkbWVudQoKIuS7o+eggeihpeWFqAoKc2V0IGNvbXBsZXRlb3B0PXByZXZpZXcsbWVudQoKIiDorr7nva7lvZPmlofku7booqvmlLnliqjml7boh6rliqjovb3lhaUKInNldCBhdXRvcmVhZAoKCiIgTkVSRFRyZWUgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0gCgoiIHRvZ2dsZSBuZXJkdHJlZSBkaXNwbGF5Cm1hcCA8RjM+IDpORVJEVHJlZVRvZ2dsZTxDUj4KIiBvcGVuIG5lcmR0cmVlIHdpdGggdGhlIGN1cnJlbnQgZmlsZSBzZWxlY3RlZApubWFwICx0IDpORVJEVHJlZUZpbmQ8Q1I+CiIgZG9uO3Qgc2hvdyB0aGVzZSBmaWxlIHR5cGVzCmxldCBORVJEVHJlZUlnbm9yZSA9IFsnXC5weWMkJywgJ1wucHlvJCddCgoKImxldCBnOnBvd2VybGluZV9weWNtZCA9ICdweTMnCiJsZXQgZzpweW1vZGVfcnVuID0gMQoibGV0IGc6cHltb2RlX3B5dGhvbiA9ICdweXRob24zJwoibGV0IGc6cHltb2RlX3J1bl9iaW5kID0gJzxGNT4nCgoibGV0IGc6cHltb2RlX2xpbnRfaWdub3JlID0gIkU1MDEiCiJsZXQgZzpweW1vZGVfbGludF9zZWxlY3QgPSAiVzAwMTEsVzQzMCIKImxldCBnOnB5bW9kZV9saW50X3NvcnQgPSBbJ0UnLCAnQycsICdJJ10KCiJTaG93IGVycm9yIG1lc3NhZ2UgaWYgY3Vyc29yIHBsYWNlZCBhdCB0aGUgZXJyb3IgbGluZSAgKidnOnB5bW9kZV9saW50X21lc3NhZ2UnKgoibGV0IGc6cHltb2RlX2xpbnRfbWVzc2FnZSA9IDEKIiBkZWZhdWx0IGNvZGUgY2hlY2tlcnMgWydweWZsYWtlcycsICdwZXA4JywgJ21jY2FiZSddCiJsZXQgZzpweW1vZGVfbGludF9jaGVja2VycyA9IFsncGVwOCddCgoiIOiHquWKqOS/neWtmOinhuWbvgphdSBCdWZXaW5MZWF2ZSAqLiogc2lsZW50IG1rdmlldwphdSBCdWZXcml0ZVBvc3QgKi4qIHNpbGVudCBta3ZpZXcKYXUgQnVmV2luRW50ZXIgKi4qIHNpbGVudCBsb2FkdmlldwoK"
+    echo $config_data | base64 -d > $HOME/.vimrc
 
+    prompt "开始配置Vundle插件管理器"
+    if [ "$?" = "0" ] ; then
+        mkdir -p $HOME/.vim/bundle/
+        git clone https://github.com/VundleVim/Vundle.vim.git $HOME/.vim/bundle/Vundle.vim
+        prompt "开始安装VIM插件"
+        vim +PluginInstall +qall
+    fi
+    install_ctags
+}
 function show_menu_install() {
     menu_head "安装选项菜单"
     menu_item 1 Anaconda3
     menu_item 2 ohmyzsh
     menu_item 3 tmux
+    menu_item 4 vim
     menu_item q 返回上级菜单
     menu_tail
 }
@@ -316,6 +356,7 @@ function do_install_all() { # 安装菜单选择
             1) install_anaconda     ;;
             2) install_ohmyzsh      ;;
             3) install_tmux         ;;
+            4) install_vim          ;;
             q) return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
@@ -554,26 +595,19 @@ function do_config_all() { # 配置菜单选择
     done
 }
 
-function usage(){
-    # 使用帮助信息
-    echo "Usage:"
-    echo "    `basename $0` [-y] [command]   跨平台快速配置工具"
-    echo
-    echo "Params:"
-    echo "   -y : 使用默认yes确认一切，不需要人工交互确认，默认情况下是确认安装的每一个环节"
-    echo "support command:"
-    echo "    anaconda3     : 安装Anaconda3的Python环境"
-    echo "    ohmyzsh       : 安装 ohmyzsh 环境(如果没安装zsh会自动安装)"
-    echo
-    echo "配置相关命令:"
-    echo "    lang          : 配置中文字符集 zh_CN.UTF-8 的支持"
-}
-
 
 function show_menu_main() {
-    menu_head "主选项菜单"
-    menu_item 1 install 安装操作
-    menu_item 2 config  配置操作
+    menu_head "安装选项菜单"
+    menu_item 1 安装命令工具
+    menu_item 2 安装图形界面工具
+    menu_item 3 安装编程开发环境
+    menu_item 4 Null
+    echo $line_feed
+    menu_item c 配置终端环境
+    menu_item d 配置桌面主题
+    menu_item g 安装显卡相关
+    menu_item e Null
+    echo $line_feed
     menu_item q 退出
     menu_tail
 }
@@ -585,14 +619,19 @@ function start_main(){
         show_menu_main
         read -r -n 1 -e  -p "`echo_greenr 请选择:`${PMT} " str_answer
         case "$str_answer" in
-            1) do_install_all   ;;
-            2) do_config_all    ;;
+            1) do_install_all   ;;  # 终端命令安装
+            2) do_install_gui   ;;  # 图形工具相关安装
+            3) do_develop_all   ;;  # 开发编程相关安装配置
+
+            c) do_config_all    ;;  # 终端环境配置
+            d) do_desktop_all   ;;  # 桌面环境配置工作(主题/图标等)
+            g) do_graphics_all  ;;  # 显卡相关安装配置
+
             q) return 0         ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
     done
 }
-
 
 ####### Main process #################################
 
