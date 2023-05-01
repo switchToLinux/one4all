@@ -51,20 +51,11 @@ ILEN=25   # 单个选项长度
 
 function menu_line() { let rlen="$item_line_count * $ILEN + 1" ; echo -en "|$TC $@ $NC" ; tput hpa $rlen ; echo "|" ; }
 function menu_head() { echo $line_feed ;   menu_line "$@" ; echo $line_feed ; }
-function menu_item() {
-    let item_index=$item_index+1
-    n=$1
-    shift
-    let rlen="$item_index * $ILEN + 1"
-    echo -en "|  $BG ${n} $NC $@" ; tput hpa $rlen ;
-    if [ "$item_index" == "$item_line_count" ] ; then
-        echo "|"
-        item_index=0
-    fi
-    
-}
+# 一行可以有 item_line_count 个选项
+function menu_item() { let item_index=$item_index+1 ; n=$1 ; shift ; let rlen="$item_index * $ILEN + 1" ; echo -en "|  $BG ${n} $NC $@" ; tput hpa $rlen ; [[ "$item_index" == "$item_line_count" ]] && echo "|" && item_index=0 ; }
+function menu_iteml() { let rlen="$item_line_count * $ILEN + 1" ; n=$1 ; shift ; echo -en "|  $BG ${n} $NC $@" ; tput hpa $rlen ; echo "|" ; }
 function menu_tail() { [[ "$item_index" != "0" ]] && echo "|" ; echo $line_feed ; item_index=0 ; }
-function println() { menu_item "$@" ; }
+
 # 日志记录
 log_file="/tmp/one4all.log"
 function loginfo() { echo -e "$(date +'%Y年%m月%d日%H:%M:%S'):INFO: $@"  | tee -a $log_file ; }
@@ -246,10 +237,10 @@ function install_anaconda() {
     else
         python_install_path=$default_python_install_path
     fi
-    if [ "$python_install_path" != "" -a  ! -r "$python_install_path" ] ; then
+    if [ "$python_install_path" != "" -a  ! -d "$python_install_path" ] ; then
         loginfo "安装路径 $python_install_path 检查正常!"
     else
-        [[ -r "$python_install_path" ]] && logerr "目录 $python_install_path 已经存在,确保目录不存在以免错误设置覆盖数据!" && return 2
+        [[ -d "$python_install_path" ]] && logerr "目录 $python_install_path 已经存在,确保目录不存在以免错误设置覆盖数据!" && return 2
         loginfo "无效目录[$python_install_path],请重新选择有效安装路径。"
         return 3
     fi
@@ -268,7 +259,7 @@ function install_anaconda() {
 }
 function install_ohmyzsh() {
     loginfo "正在执行 install_ohmyzsh"
-    [[ -r "$HOME/.oh-my-zsh" ]] && loginfo "已经安装过 ohmyzsh 环境了" && return 0
+    [[ -d "$HOME/.oh-my-zsh" ]] && loginfo "已经安装过 ohmyzsh 环境了" && return 0
     sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     [[ "$?" = "0" ]]  || (redr_line "安装ohmyzsh失败了!! 看看报错信息! 稍后重新安装试试!"  && return 1)
 
@@ -595,7 +586,75 @@ function do_config_all() { # 配置菜单选择
     done
 }
 
+########## 开发环境 install_develop ##########################
+function install_sdwebui() {
+    loginfo "开始执行 install_sdwebui, 安装源: https://github.com/AUTOMATIC1111/stable-diffusion-webui"
+    menu_head "stable-diffusion-webui ${BG}安装前提${NC}"
+    menu_iteml Python3 "(推荐 3.10 以上)"
+    menu_iteml 显存要求 4GB以上,入门推荐GTX1660S
+    menu_tail
+    menu_head "运行环境检查结果:"
+    menu_iteml "Python3" `python3 --version`
+    if which nvidia-smi > /dev/null; then
+        menu_iteml "Nvidia型号" `nvidia-smi -q | awk -F: '/Product Name/{print $2 }'`
+        menu_iteml "Nvidia显存" `nvidia-smi -q | grep -A4 'FB Memory Usage' | awk '/Total/{print $3 }'` "MB"
+    fi
+    menu_tail
+    id_like=`awk -F= '/^ID_LIKE/{ print $2 }' /etc/os-release|sed 's/\"//g'`
+    which python3 >/dev/null || sudo ${pac_cmd_ins} python3 wget git && loginfo "自动安装python3环境完成." && [[ "$id_like" = "debian" ]] &&  sudo ${pac_cmd_ins} python3-venv
+    
+    pyver="`python3 --version| cut -d. -f2`"
+    [[ "$pyver" -lt "10" ]] && logerr "当前Python3版本过低,建议使用Python 3.10以上" && return 1
 
+    prompt "是否开始安装?"
+    [[ "$?" != "0" ]] && return 1
+    default_path="$HOME/stable-diffusion-webui"
+    read -p "设置安装目录(默认：`echo_greenr ${default_path}`) ${PMT} " install_path
+    if [ "$install_path" = "" ] ; then
+        loginfo "已选择默认安装目录:${default_path}"
+        install_path=$default_path
+    fi
+    if [ ! -d "$install_path" ] ; then
+        [[ ! -d "`dirname $install_path`" ]] && logerr "$install_path 上级目录不存在,请检查后重新设置" && return 1
+        loginfo "安装路径 $install_path 检查正常!"
+    else
+        logerr "目录 $install_path 已经存在,确保目录不存在以免错误设置覆盖数据!" && return 2
+    fi
+    # 安装前检查磁盘空间
+    reserve_size="10240" # 10GB预留(训练模型文件占用更多空间),可以分离模型目录与安装环境
+    disk_check_usage `dirname ${install_path}` $reserve_size
+    [[ "$?" != "0" ]] && return 4
+
+    git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git $install_path
+    [[ "$?" != "0" ]] && logerr "下载代码出错了" && return 5
+    
+    cd $install_path
+    # export COMMANDLINE_ARGS="--xformers --lowvram --no-half-vae --no-half --device-id 0 --api --cors-allow-origins=* --allow-code"
+    loginfo "设置 启动参数(低显存,加载时间略长)"
+    echo 'export COMMANDLINE_ARGS=${COMMANDLINE_ARGS} --xformers --lowvram --no-half-vae --no-half' >> ./webui-user.sh
+    ./webui.sh
+    loginfo "成功执行 install_sdwebui"
+}
+
+function show_menu_develop() {
+    menu_head "选项菜单"
+    menu_item 1 SDWebUI
+    menu_item q 返回上级菜单
+    menu_tail
+}
+function do_develop_all() {
+    while true
+    do
+        show_menu_develop
+        read -r -n 1 -e  -p "`echo_greenr 请选择:` ${PMT} " str_answer
+        case "$str_answer" in
+            1) install_sdwebui      ;;
+
+            q) return 0             ;;  # 返回上级菜单
+            *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
+        esac
+    done
+}
 function show_menu_main() {
     menu_head "安装选项菜单"
     menu_item 1 安装命令工具
