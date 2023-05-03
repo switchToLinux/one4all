@@ -377,10 +377,12 @@ function kde_theme_switch() {
         theme_namelist[$idx]="$str_item"
         let idx=$idx+1
     done
+    menu_iteml "q" "返回上一级"
     menu_tail
     while true ; do
         read -r -n 1 -e -p "请选择主题序号:" str_answer
-        [[ "$str_answer" != "" ]] && [[ $str_answer -gt 0 ]] && [[ $str_answer -lt "$idx" ]] && your_theme="${theme_namelist[$str_answer]}" && break
+        [[ "$str_answer" != "" ]] && [[ "$str_answer" == "q" ]] && return 1
+        [[ "$str_answer" != "" ]] && [[ "$str_answer" -gt "0" ]] && [[ "$str_answer" -lt "$idx" ]] && your_theme="${theme_namelist[$str_answer]}" && break
     done
     loginfo "您选择的主题为:$your_theme"
     lookandfeeltool -a $your_theme
@@ -492,7 +494,6 @@ function config_langpack() {  # 中文语言支持 zh_CN.UTF-8
     echo "在当前SHELL环境下执行  export LC_ALL=$local_name  立即生效."
     loginfo "成功执行 config_langpack ."
 }
-
 function config_sshd() { # 开启SSH服务
     loginfo "正在执行 config_sshd"
     case "$os_type" in
