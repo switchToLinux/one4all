@@ -87,13 +87,10 @@ function prompt() { # 提示确认函数，如果使用 -y 参数默认为Y确�
     msg="$@"
     if [ "$default_confirm" != "yes" ] ; then
         read -r -n 1 -e  -p "$msg (y/`echo_greenr N`)" str_answer
-        if [ "$str_answer" = "y" -o "$str_answer" = "Y" ] ; then
-            echo "已确认"
-            return 0
-        else
-            echo "已取消"
-            return 1
-        fi
+        case "$str_answer" in
+            y*|Y*)  echo "已确认" ; return 0 ;;
+            *)      echo "已取消" ; return 1 ;;
+        esac
     else
         echo "$msg"
     fi
@@ -644,11 +641,7 @@ function config_user() {  # 添加管理员用户
 }
 function config_machine_id() {  # 生成 machine_id 唯一信息(从模板克隆主机时会有相同id情况，导致网络分配识别等问题)
     loginfo "正在执行 config_machine_id"
-    prompt "确定重新生成 machine_id(${BG}会影响购买激活的软件${NC})"
-    if [ "$?" != "0" ] ; then
-        echo "已经取消 machine_id 生成任务"
-        return 0
-    fi
+    prompt "确定重新生成 machine_id(${BG}会影响购买激活的软件${NC})" || return 1
     white_line "开始生成新的 machine_id :"
     id_file=/etc/machine-id
     loginfo "记录上一次的 machine-id : `cat $id_file`"
@@ -660,6 +653,7 @@ function config_machine_id() {  # 生成 machine_id 唯一信息(从模板克隆
 function config_hostid() { # 生成 hostid 唯一信息(根据网卡ip生成)
     loginfo "正在执行 config_hostid, 当前 hostid=`hostid`"
     myipv4=`ip a s | awk '/inet / && /global/{ print $2 }'|sed 's/\/.*//g'`
+    prompt "请确认是否重新生成hostid" || return 1
     echo -e "当前全局的IPv4地址: ${BG}${myipv4}${NC} ,开始生成 /etc/hostid"
     ip1=`echo ${myipv4} | cut -d. -f1 | xargs printf "%x"`
     ip2=`echo ${myipv4} | cut -d. -f2 | xargs printf "%x"`
