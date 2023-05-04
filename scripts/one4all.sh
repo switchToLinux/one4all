@@ -131,7 +131,7 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
         *)
             gui_type=""
             [[ "$$XDG_CURRENT_DESKTOP" == "" ]] && logerr "您当前会话类型为[$XDG_SESSION_TYPE] 非图形界面下运行"
-            [[ "$$XDG_CURRENT_DESKTOP" != "" ]] && logginfo "unknown desktop type: $XDG_CURRENT_DESKTOP"
+            [[ "$$XDG_CURRENT_DESKTOP" != "" ]] && loginfo "unknown desktop type: $XDG_CURRENT_DESKTOP"
             ;;
     esac
     cpu_arch="`uname -m`"
@@ -271,7 +271,7 @@ function install_anaconda() {
 function install_ohmyzsh() {
     loginfo "正在执行 install_ohmyzsh"
     [[ -d "$HOME/.oh-my-zsh" ]] && loginfo "已经安装过 ohmyzsh 环境了" && return 0
-    sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    sh -c "RUNZSH=no $(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     [[ "$?" = "0" ]]  || (redr_line "安装ohmyzsh失败了!! 看看报错信息! 稍后重新安装试试!"  && return 1)
 
     loginfo "开始安装Powerline字体"
@@ -281,7 +281,7 @@ function install_ohmyzsh() {
     # install
     cd $font_tmp_dir && sh ./install.sh && cd - && rm -rf $font_tmp_dir
 
-    logginfo "设置默认主题为: $BG agnoster $NC(主题列表命令: omz theme list , 设置 random 随机主题也不错 )"
+    loginfo "设置默认主题为: $BG agnoster $NC(主题列表命令: omz theme list , 设置 random 随机主题也不错 )"
     sed -i 's/ZSH_THEME="robbyrussell"/ZSH_THEME="agnoster"/' $HOME/.zshrc
     loginfo "成功执行 install_ohmyzsh , $BG 安装ohmyzsh成功!$NC 重新登录或打开新Terminal即可生效!"
 }
