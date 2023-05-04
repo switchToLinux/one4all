@@ -10,10 +10,16 @@
 # 功能简述: 一个 one for all 脚本工具，给Linux的安装、配置过程一个简单的统一
 ########################################################################
 # set -e              # 命令执行失败就中止继续执行
+# 环境变量参数:
+#   OUTPUTLOG - no 表示只输出日志信息到文件中,不在终端显示，默认为 yes(终端显示)
+#
 
 #### 默认选项 #####
 default_confirm="no"    # 是否提示确认，no-提示，yes-自动选择yes
 PMT=">>>"
+if [ "$OUTPUTLOG" = "" ] ; then
+    OUTPUTLOG="yes"  # 默认输出日志内容到 stdout
+fi
 
 os_type=""          # Linux操作系统分支类型
 os_version=""       # Linux系统版本号
@@ -59,15 +65,17 @@ function menu_tail() { [[ "$item_index" != "0" ]] && echo "|" ; echo $line_feed 
 
 # 日志记录
 log_file="/tmp/one4all.log"
-function loginfo() { echo -e "$(date +'%Y年%m月%d日%H:%M:%S'):INFO: $@"  | tee -a $log_file ; }
-function logerr()  { echo -e "$(date +'%Y年%m月%d日%H:%M:%S'):ERROR: $@" | tee -a $log_file ; }
+function output_msg() { LEVEL="$1" ; shift ; echo -e "$(date +'%Y年%m月%d日%H:%M:%S'):${LEVEL}: $@" ; }
+function output_log() { if [ "$OUTPUTLOG" = "yes" ] ; then  output_msg $@ | tee -a $log_file ; else output_msg $@ >> $log_file ; fi }
+function loginfo() { output_log "INFO" $@  ; }
+function logerr()  { output_log "ERROR" $@ ; }
 
 ################################################################
 #  文本信息设定
 
 # 欢迎和再见提示信息
-WELCOME="见到你很高兴！ 开心的一天从这里开始 ^_^"
-SEE_YOU="出去晒晒太阳吧! 多运动才能有健康的好身体! ^=^"
+WELCOME="^_^你笑起来真好看!像春天的花一样!"
+SEE_YOU="^_^出去晒晒太阳吧!多运动才更健康!"
 
 
 
@@ -75,7 +83,7 @@ SEE_YOU="出去晒晒太阳吧! 多运动才能有健康的好身体! ^=^"
 function prompt() { # 提示确认函数，如果使用 -y 参数默认为Y确认
     msg="$@"
     if [ "$default_confirm" != "yes" ] ; then
-        read -r -n 1 -e  -p "$msg (y/N)" str_answer
+        read -r -n 1 -e  -p "$msg (y/`echo_greenr N`)" str_answer
         if [ "$str_answer" = "y" -o "$str_answer" = "Y" ] ; then
             echo "已确认"
             return 0
@@ -135,7 +143,7 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
             ;;
     esac
     cpu_arch="`uname -m`"
-    loginfo "os_type:$os_type,os_version:$os_version,cpu_arch=$cpu_arch, DESKTOP=$gui_type, pac_cmd=$pac_cmd ."
+    loginfo "${BG}操作系统${NC}:$os_type,${BG}版本${NC}:$os_version,${BG}架构${NC}:$cpu_arch,${BG}桌面类型${NC}:$gui_type,${BG}包管理命令${NC}:$pac_cmd"
     if [ -z "$pac_cmd" ] ; then
         return 1
     fi
@@ -773,8 +781,6 @@ function show_menu_main() {
     menu_tail
 }
 function start_main(){
-    menu_tail
-    menu_head "$TC $WELCOME $NC"
     while true
     do
         show_menu_main
@@ -806,7 +812,7 @@ function start_main(){
 }
 
 ####### Main process #################################
-
+menu_head "$WELCOME"
 check_sys       # 检查系统信息
 check_basic     # 基础依赖命令检测与安装
 
@@ -824,4 +830,4 @@ else  # 命令执行模式(执行后退出)
     esac
 fi
 
-menu_head "$TC ${SEE_YOU} $NC"
+menu_head "${SEE_YOU}"
