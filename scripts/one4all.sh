@@ -234,6 +234,7 @@ function service_enable_start() {
 
 function install_anaconda() {
     loginfo "正在执行 install_anaconda 开始下载安装Anaconda3环境."
+    prompt "开始安装 Anaconda3" || return 1
     which anaconda >/dev/null 2>&1 && loginfo "Anaconda3已经安装过了!" && return 1
     tmp_file=/tmp/.anaconda.html
     curl -o $tmp_file -sSL https://repo.anaconda.com/archive/
@@ -278,6 +279,7 @@ function install_anaconda() {
 }
 function install_ohmyzsh() {
     loginfo "正在执行 install_ohmyzsh"
+    prompt "开始安装 ohmyzsh" || return 1
     [[ -d "$HOME/.oh-my-zsh" ]] && loginfo "已经安装过 ohmyzsh 环境了" && return 0
     sh -c "RUNZSH=no $(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     [[ "$?" = "0" ]]  || (redr_line "安装ohmyzsh失败了!! 看看报错信息! 稍后重新安装试试!"  && return 1)
@@ -295,6 +297,7 @@ function install_ohmyzsh() {
 }
 function install_tmux() {  # Terminal终端会话管理工具,类似Screen
     loginfo "正在执行 install_tmux"
+    prompt "开始安装 tmux" || return 1
     which tmux >/dev/null && ! prompt "已经安装过 tmux ，继续安装?" && return 0
     # basic config with plugin
     config_data="CiPorr7nva7liY3nvIDkuLpDdHJsICsgYQojIHNldCAtZyBwcmVmaXggQy1hCiPop6PpmaRDdHJsK2Ig5LiO5YmN57yA55qE5a+55bqU5YWz57O7CiMgdW5iaW5kIEMtYgoKCiPlsIZyIOiuvue9ruS4uuWKoOi9vemFjee9ruaWh+S7tu+8jOW5tuaYvuekuiJyZWxvYWRlZCEi5L+h5oGvCmJpbmQgciBzb3VyY2UtZmlsZSB+Ly50bXV4LmNvbmYgXDsgZGlzcGxheSAiUmVsb2FkZWQhIgoKCgojdXAKYmluZC1rZXkgayBzZWxlY3QtcGFuZSAtVQojZG93bgpiaW5kLWtleSBqIHNlbGVjdC1wYW5lIC1ECiNsZWZ0CmJpbmQta2V5IGggc2VsZWN0LXBhbmUgLUwKI3JpZ2h0CmJpbmQta2V5IGwgc2VsZWN0LXBhbmUgLVIKCiNzZWxlY3QgbGFzdCB3aW5kb3cKYmluZC1rZXkgQy1sIHNlbGVjdC13aW5kb3cgLWwKCiMjIGznmoTnjrDlnKjnmoTnu4TlkIjplK7vvJogQ3RybCt4IGzmmK/liIfmjaLpnaLmnb/vvIxDdHJsK3ggQ3RybCts5YiH5o2i56qX5Y+j77yMQ3RybCts5riF5bGPCgoj5L2/5b2T5YmNcGFuZSDmnIDlpKfljJYKIyB6b29tIHBhbmUgPC0+IHdpbmRvdwojaHR0cDovL3RtdXguc3ZuLnNvdXJjZWZvcmdlLm5ldC92aWV3dmMvdG11eC90cnVuay9leGFtcGxlcy90bXV4LXpvb20uc2gKIyBiaW5kIF56IHJ1biAidG11eC16b29tIgojIwoKI2NvcHktbW9kZSDlsIblv6vmjbfplK7orr7nva7kuLp2aSDmqKHlvI8Kc2V0dyAtZyBtb2RlLWtleXMgdmkKIyBzZXQgc2hlbGwKc2V0IC1nIGRlZmF1bHQtc2hlbGwgL2Jpbi96c2gKCgoKIyBwcmVmaXggKyBJKOWkp+WGmSkgOiDlronoo4Xmj5Lku7YKIyBwcmVmaXggKyBVKOWkp+WGmSkgOiDmm7TmlrDmj5Lku7YKIyBwcmVmaXggKyBhbHQgKyB1IDog5riF55CG5o+S5Lu2KOS4jeWcqHBsdWdpbiBsaXN05LitKQojIHByZWZpeCArIEN0cmwtcyAtIHNhdmUKIyBwcmVmaXggKyBDdHJsLXIgLSByZXN0b3JlCgojIOS8muivneeuoeeQhuaPkuS7tgoKc2V0IC1nIEBwbHVnaW4gJ3RtdXgtcGx1Z2lucy90cG0nCnNldCAtZyBAcGx1Z2luICd0bXV4LXBsdWdpbnMvdG11eC1yZXN1cnJlY3QnCnNldCAtZyBAcGx1Z2luICd0bXV4LXBsdWdpbnMvdG11eC1jb250aW51dW0nCgpzZXQgLWcgQGNvbnRpbnV1bS1zYXZlLWludGVydmFsICcxNScKc2V0IC1nIEBjb250aW51dW0tcmVzdG9yZSAnb24nCnNldCAtZyBAcmVzdXJyZWN0LWNhcHR1cmUtcGFuZS1jb250ZW50cyAnb24nCiMKIyBPdGhlciBjb25maWcgLi4uCgpydW4gLWIgJ34vLnRtdXgvcGx1Z2lucy90cG0vdHBtJwoK"
@@ -330,10 +333,7 @@ function install_ctags() {
 }
 function install_vim() {
     # 配置 vim 
-    prompt "开始安装VIM"
-    if [ "$?" != "0" ]; then
-        return 0
-    fi
+    prompt "开始安装VIM" || return 1
     sudo $pac_cmd_ins  vim
     # 配置 .vimrc 文件base64数据模板
     config_data="IiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiCiIKIiBWSU0g5L2/55So5biu5Yqp77yaCiIgICDlv6vmjbfplK7vvJoKIiAgICAgICBGMSA6IOabtOaWsEYy5omT5byA55qEVGFn5qCH6K6w5YiX6KGoCiIgICAgICAgRjIgOiDmiZPlvIDku6PnoIF0YWfmoIforrDliJfooago546w5a6e5Ye95pWw5oiW6ICF5Y+Y6YeP5qCH6K6wKQoiICAgICAgIEYzIDog5pi+56S65b2T5YmN5paH5Lu255qE55uu5b2V5L+h5oGvCiIgICAgICAgRjUgOiDov5DooYxQeXRob24z5Luj56CBCiIgICAgICAgRjkgOiDpopzoibLmmL7npLrku6PnoIEKIiAgICAgICBGMTA6IOaKmOWPoC/miZPlvIDku6PnoIHlnZcKIiAgIFNwbGl0Vmlld+W/q+aNt+WRveS7pO+8mgoiICAgICAgdHN2IDog5LiK5LiL5YiG5bGP5omT5byA5paH5Lu2CiIgICAgICB0dnMgOiDlt6blj7PliIblsY/miZPlvIDmlofku7YKIiAgIEN0cmwraCA6IOWIh+aNouW3puS+p+WIhuWxjwoiICAgQ3RybCtsIDog5YiH5o2i5Y+z5L6n5YiG5bGPCiIgICBDdHJsK2ogOiDliIfmjaLkuIvkvqfliIblsY8KIiAgIEN0cmwrayA6IOWIh+aNouS4iuS+p+WIhuWxjwoiCiIgICBUYWLpobXlr7zoiKrlv6vmjbfplK46CiIgICAgICAgdG4gOiDkuIvkuIB0YWLpobUKIiAgICAgICB0cCA6IOS4iuS4gHRhYumhtQoiICAgICAgIHRjIDog5YWz6Zet5b2T5YmNdGFi6aG1CiIgICAgICAgdG0gOiDlvZPliY10YWLpobXnp7vliqjmlbDlrZd45qyhKOi0n+aVsOihqOekuuWPjeWQkeenu+WKqCkKIiAgICAgICB0dCA6IOaWsOaJk+W8gHRhYumhtQoiICAgICAgIHRzIDog5L2/55So5b2T5YmNdGFi6aG15paH5Lu25paw5omT5byA5LiA5LiqdGFi6aG1CiIKIiAgIOS7o+eggee8lui+kea3u+WKoOm7mOiupOazqOmHiuWktOmDqOS/oeaBryjmlK/mjIFiYXNo44CBcHl0aG9u44CBY3Bw44CBY+S7o+eggeaWh+S7tikKIgoiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIKCnNldCBub2NvbXBhdGlibGUgICAgICAgICAgICAgICIgcmVxdWlyZWQKZmlsZXR5cGUgcGx1Z2luIG9mZgpmaWxldHlwZSBpbmRlbnQgb24KCgoiIHNldCB0aGUgcnVudGltZSBwYXRoIHRvIGluY2x1ZGUgVnVuZGxlIGFuZCBpbml0aWFsaXplCnNldCBydHArPX4vLnZpbS9idW5kbGUvVnVuZGxlLnZpbQpjYWxsIHZ1bmRsZSNiZWdpbigpCgoiIGFsdGVybmF0aXZlbHksIHBhc3MgYSBwYXRoIHdoZXJlIFZ1bmRsZSBzaG91bGQgaW5zdGFsbCBwbHVnaW5zCiJjYWxsIHZ1bmRsZSNiZWdpbignfi9zb21lL3BhdGgvaGVyZScpCgoiIGxldCBWdW5kbGUgbWFuYWdlIFZ1bmRsZSwgcmVxdWlyZWQKUGx1Z2luICdnbWFyaWsvVnVuZGxlLnZpbScKUGx1Z2luICdUYXNrTGlzdC52aW0nClBsdWdpbiAndmltLXN5bnRhc3RpYy9zeW50YXN0aWMnClBsdWdpbiAnbnZpZS92aW0tZmxha2U4JwpQbHVnaW4gJ2pudXJtaW5lL1plbmJ1cm4nClBsdWdpbiAnYWx0ZXJjYXRpb24vdmltLWNvbG9ycy1zb2xhcml6ZWQnClBsdWdpbiAnamlzdHIvdmltLW5lcmR0cmVlLXRhYnMnClBsdWdpbiAnc2Nyb29sb29zZS9uZXJkdHJlZScKUGx1Z2luICd0cG9wZS92aW0tZnVnaXRpdmUnICJHaXQgSW50ZWdyYXRpb24KUGx1Z2luICd2aW0tc2NyaXB0cy9pbmRlbnRweXRob24udmltJwpQbHVnaW4gJ0xva2FsdG9nL3Bvd2VybGluZScsIHsncnRwJzogJ3Bvd2VybGluZS9iaW5kaW5ncy92aW0vJ30KUGx1Z2luICd0YWJwYWdlY29sb3JzY2hlbWUnClBsdWdpbiAndGFnbGlzdC52aW0nClBsdWdpbiAndGFnbGlzdC1wbHVzJwpQbHVnaW4gJ29sbHlrZWwvdi12aW0nClBsdWdpbiAnUHl0aG9uLW1vZGUta2xlbicKUGx1Z2luICdydXN0LWxhbmcvcnVzdC52aW0nCiJQbHVnaW4gJ3dha2F0aW1lL3ZpbS13YWthdGltZScKCgoiIGFkZCBhbGwgeW91ciBwbHVnaW5zIGhlcmUgKG5vdGUgb2xkZXIgdmVyc2lvbnMgb2YgVnVuZGxlCiIgdXNlZCBCdW5kbGUgaW5zdGVhZCBvZiBQbHVnaW4pCgoiQnVuZGxlICdWYWxsb3JpYy9Zb3VDb21wbGV0ZU1lJwoKCgoiIEFsbCBvZiB5b3VyIFBsdWdpbnMgbXVzdCBiZSBhZGRlZCBiZWZvcmUgdGhlIGZvbGxvd2luZyBsaW5lCmNhbGwgdnVuZGxlI2VuZCgpICAgICAgICAgICAgIiByZXF1aXJlZAoKCnNldCBlbmNvZGluZz11dGYtOAoKc2V0IGZlbmNzPXV0Zi04LHVjcy1ib20sc2hpZnQtamlzLGdiMTgwMzAsZ2JrLGdiMjMxMixjcDkzNgoKc2V0IHRlcm1lbmNvZGluZz11dGYtOAoKc2V0IGZpbGVlbmNvZGluZ3M9dWNzLWJvbSx1dGYtOCxjcDkzNgoKc2V0IGZpbGVlbmNvZGluZz11dGYtOAoKCnNldCBzcGxpdGJlbG93CnNldCBzcGxpdHJpZ2h0Cgoic3BsaXQgbmF2aWdhdGlvbnMKbm5vcmVtYXAgPEMtSj4gPEMtVz48Qy1KPgpubm9yZW1hcCA8Qy1LPiA8Qy1XPjxDLUs+Cm5ub3JlbWFwIDxDLUw+IDxDLVc+PEMtTD4Kbm5vcmVtYXAgPEMtSD4gPEMtVz48Qy1IPgoKCiIgIyMgZGVmaW5lIGxhbmd1YWdlIGNvbmZpZ3VyYXRpb24gCgoiIyJWIGxhbmd1YWdlIGNvbmZpZ3VyZQoiI2xldCBnOnZfaGlnaGxpZ2h0X2FycmF5X3doaXRlc3BhY2VfZXJyb3IgPSAwCiIjbGV0IGc6dl9oaWdobGlnaHRfY2hhbl93aGl0ZXNwYWNlX2Vycm9yID0gMAoiI2xldCBnOnZfaGlnaGxpZ2h0X3NwYWNlX3RhYl9lcnJvciA9IDAKIiNsZXQgZzp2X2hpZ2hsaWdodF90cmFpbGluZ193aGl0ZXNwYWNlX2Vycm9yID0gMAoiI2xldCBnOnZfaGlnaGxpZ2h0X2Z1bmN0aW9uX2NhbGxzID0gMAoiI2xldCBnOnZfaGlnaGxpZ2h0X2ZpZWxkcyA9IDAKCgoiIyBtYXJrZG93biBmb2xkaW5nICMKImxldCBnOnZpbV9tYXJrZG93bl9mb2xkaW5nX3N0eWxlX3B5dGhvbmljID0gMQoibGV0IGc6dmltX21hcmtkb3duX2ZvbGRpbmdfbGV2ZWwgPSAyCiJsZXQgZzp2aW1fbWFya2Rvd25fb3ZlcnJpZGVfZm9sZHRleHQgPSAwCiJsZXQgZzp2aW1fbWFya2Rvd25fdG9jX2F1dG9maXQgPSAxCgoKIiBQeXRob27or63ms5Xpq5jkuq4gCmxldCBweXRob25faGlnaGxpZ2h0X2FsbD0xCnN5bnRheCBvbgoKaWYgaGFzKCdndWlfcnVubmluZycpCiAgc2V0IGJhY2tncm91bmQ9ZGFyawogIGNvbG9yc2NoZW1lIHNvbGFyaXplZAplbHNlCiAgY29sb3JzY2hlbWUgemVuYnVybgplbmRpZgoKY2FsbCB0b2dnbGViZyNtYXAoIjxGOT4iKQoKIiBFbmFibGUgZm9sZGluZwpzZXQgZm9sZG1ldGhvZD1tYW51YWwKc2V0IGZvbGRuZXN0bWF4PTEwCnNldCBub2ZvbGRlbmFibGUKc2V0IGZvbGRsZXZlbD05OQpzZXQgZm9sZGNvbHVtbj0zCm1hcCA8RjEwPiA6c2V0IGZvbGRtZXRob2Q9bWFudWFsPENSPnphCgpzZXQgbWFnaWMKc2V0IGNvbmZpcm0Kc2V0IG5vYmFja3VwCnNldCBub3N3YXBmaWxlCgoiIOS9v+WbnuagvOmUru+8iGJhY2tzcGFjZe+8ieato+W4uOWkhOeQhmluZGVudCwgZW9sLCBzdGFydOetiQpzZXQgYmFja3NwYWNlPTIKIiDlhYHorrhiYWNrc3BhY2XlkozlhYnmoIfplK7ot6jotorooYzovrnnlYwKc2V0IHdoaWNod3JhcCs9PCw+LGgsbAoKc2V0IG1vdXNlPXYKc2V0IHNlbGVjdGlvbj1leGNsdXNpdmUKc2V0IHNlbGVjdG1vZGU9bW91c2Usa2V5CgoKIiDlkb3ku6TooYzvvIjlnKjnirbmgIHooYzkuIvvvInnmoTpq5jluqbvvIzpu5jorqTkuLox77yM6L+Z6YeM5pivMgpzZXQgY21kaGVpZ2h0PTIKCgoiIOeci+WIsOaKmOWPoOS7o+eggeeahOaWh+aho+Wtl+espuS4sgoibGV0IGc6U2ltcHlsRm9sZF9kb2NzdHJpbmdfcHJldmlldz0xCgoiIOiHquWKqOihpeWFqApsZXQgZzp5Y21fYXV0b2Nsb3NlX3ByZXZpZXdfd2luZG93X2FmdGVyX2NvbXBsZXRpb249MQptYXAgPGxlYWRlcj5nICA6WWNtQ29tcGxldGVyIEdvVG9EZWZpbml0aW9uRWxzZURlY2xhcmF0aW9uPENSPgoKCiIgdGFicyBhbmQgc3BhY2VzIGhhbmRsaW5nCnNldCBleHBhbmR0YWIKc2V0IHRhYnN0b3A9NApzZXQgc29mdHRhYnN0b3A9NApzZXQgc2hpZnR3aWR0aD00CgpzZXQgbnUgIiDmmL7npLrooYzlj7cgCgpzZXQgc3RhdHVzbGluZT0lRiVtJXIlaCV3XCBbRk9STUFUPSV7JmZmfV1cIFtUWVBFPSVZXVwgW1BPUz0lbCwldl1bJXAlJV1cICV7c3RyZnRpbWUoXCIlZC8lbS8leVwgLVwgJUg6JU1cIil9ICAgIueKtuaAgeihjOaYvuekuueahOWGheWuuQpzZXQgbGFzdHN0YXR1cz0yICAgICIg5ZCv5Yqo5pi+56S654q25oCB6KGMKDEpLOaAu+aYr+aYvuekuueKtuaAgeihjCgyKQoKCiIgYnVmZmVyCiIgYnVmZmVyIHNwbGl0dmlldwptYXAgdHN2IDpzdiAKIiBzcGxpdCB2ZXJ0aWNhbGx5Cm1hcCB0dnMgOnZzIAoKIiB0YWIgbmF2aWdhdGlvbiBtYXBwaW5ncwptYXAgdG4gOnRhYm48Q1I+Cm1hcCB0cCA6dGFicDxDUj4KbWFwIHRjIDp0YWJjbG9zZTxDUj4gCm1hcCB0bSA6dGFibSAKbWFwIHR0IDp0YWJuZXcgCm1hcCB0cyA6dGFiIHNwbGl0PENSPgoKImltYXAgPEMtUmlnaHQ+IDxFU0M+OnRhYm48Q1I+CiJpbWFwIDxDLUxlZnQ+ICA8RVNDPjp0YWJwPENSPgoKCmxldCBnOm1pbmlCdWZFeHBsTWFwV2luZG93TmF2VmltID0gMQpsZXQgZzptaW5pQnVmRXhwbE1hcFdpbmRvd05hdkFycm93cyA9IDEKbGV0IGc6bWluaUJ1ZkV4cGxNYXBDVGFiU3dpdGNoQnVmcyA9IDEKbGV0IGc6bWluaUJ1ZkV4cGxNb2RTZWxUYXJnZXQgPSAxCgoiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiCiIgQ1RhZ3PnmoTorr7lrpoKIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIgpsZXQgVGxpc3RfU29ydF9UeXBlID0gIm5hbWUiICAgICIg5oyJ54Wn5ZCN56ew5o6S5bqPCmxldCBUbGlzdF9Vc2VfUmlnaHRfV2luZG93ID0gMSAgIiDlnKjlj7PkvqfmmL7npLrnqpflj6MKbGV0IFRsaXN0X0NvbXBhcnRfRm9ybWF0ID0gMSAgICAiIOWOi+e8qeaWueW8jwpsZXQgVGxpc3RfRXhpc3RfT25seVdpbmRvdyA9IDEgICIg5aaC5p6c5Y+q5pyJ5LiA5LiqYnVmZmVy77yMa2lsbOeql+WPo+S5n2tpbGzmjolidWZmZXIKbGV0IFRsaXN0X0ZpbGVfRm9sZF9BdXRvX0Nsb3NlID0gMCAgIiDkuI3opoHlhbPpl63lhbbku5bmlofku7bnmoR0YWdzCmxldCBUbGlzdF9FbmFibGVfRm9sZF9Db2x1bW4gPSAwICAgICIg5LiN6KaB5pi+56S65oqY5Y+g5qCRCgphdXRvY21kIEZpbGVUeXBlIGphdmEgc2V0IHRhZ3MrPS4vdGFncwphdXRvY21kIEZpbGVUeXBlIGgsY3BwLGNjLGMsZ28gc2V0IHRhZ3MrPS4vdGFncwpsZXQgVGxpc3RfU2hvd19PbmVfRmlsZT0xICAgICAgICAgICAgIuS4jeWQjOaXtuaYvuekuuWkmuS4quaWh+S7tueahHRhZ++8jOWPquaYvuekuuW9k+WJjeaWh+S7tueahAoKIuiuvue9rnRhZ3MKc2V0IHRhZ3M9dGFncwoKIum7mOiupOaJk+W8gFRhZ2xpc3QKbGV0IFRsaXN0X0F1dG9fT3Blbj0wCiIgc2hvdyBwZW5kaW5nIFRhZyBsaXN0Cm1hcCA8RjI+IDpUbGlzdFRvZ2dsZTxDUj4KbWFwIDxGMT4gOlRsaXN0VXBkYXRlPENSPgoKIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiCiIgVGFnIGxpc3QgKGN0YWdzKQoiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIgpsZXQgVGxpc3RfQ3RhZ3NfQ21kID0gJy91c3IvYmluL2N0YWdzJwpsZXQgVGxpc3RfU2hvd19PbmVfRmlsZSA9IDEgIuS4jeWQjOaXtuaYvuekuuWkmuS4quaWh+S7tueahHRhZ++8jOWPquaYvuekuuW9k+WJjeaWh+S7tueahApsZXQgVGxpc3RfRXhpdF9Pbmx5V2luZG93ID0gMSAi5aaC5p6cdGFnbGlzdOeql+WPo+aYr+acgOWQjuS4gOS4queql+WPo++8jOWImemAgOWHunZpbQpsZXQgVGxpc3RfVXNlX1JpZ2h0X1dpbmRvdyA9IDEgIuWcqOWPs+S+p+eql+WPo+S4reaYvuekunRhZ2xpc3Tnqpflj6MKCgoiIOWcqOiiq+WIhuWJsueahOeql+WPo+mXtOaYvuekuuepuueZve+8jOS+v+S6jumYheivuwpzZXQgZmlsbGNoYXJzPXZlcnQ6XCAsc3RsOlwgLHN0bG5jOlwKCiIg6auY5Lqu5pi+56S65Yy56YWN55qE5ous5Y+3CnNldCBzaG93bWF0Y2gKCiIg5aKe5by65qih5byP5Lit55qE5ZG95Luk6KGM6Ieq5Yqo5a6M5oiQ5pON5L2cCnNldCB3aWxkbWVudQoKIuS7o+eggeihpeWFqAoKc2V0IGNvbXBsZXRlb3B0PXByZXZpZXcsbWVudQoKIiDorr7nva7lvZPmlofku7booqvmlLnliqjml7boh6rliqjovb3lhaUKInNldCBhdXRvcmVhZAoKCiIgTkVSRFRyZWUgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0gCgoiIHRvZ2dsZSBuZXJkdHJlZSBkaXNwbGF5Cm1hcCA8RjM+IDpORVJEVHJlZVRvZ2dsZTxDUj4KIiBvcGVuIG5lcmR0cmVlIHdpdGggdGhlIGN1cnJlbnQgZmlsZSBzZWxlY3RlZApubWFwICx0IDpORVJEVHJlZUZpbmQ8Q1I+CiIgZG9uO3Qgc2hvdyB0aGVzZSBmaWxlIHR5cGVzCmxldCBORVJEVHJlZUlnbm9yZSA9IFsnXC5weWMkJywgJ1wucHlvJCddCgoKImxldCBnOnBvd2VybGluZV9weWNtZCA9ICdweTMnCiJsZXQgZzpweW1vZGVfcnVuID0gMQoibGV0IGc6cHltb2RlX3B5dGhvbiA9ICdweXRob24zJwoibGV0IGc6cHltb2RlX3J1bl9iaW5kID0gJzxGNT4nCgoibGV0IGc6cHltb2RlX2xpbnRfaWdub3JlID0gIkU1MDEiCiJsZXQgZzpweW1vZGVfbGludF9zZWxlY3QgPSAiVzAwMTEsVzQzMCIKImxldCBnOnB5bW9kZV9saW50X3NvcnQgPSBbJ0UnLCAnQycsICdJJ10KCiJTaG93IGVycm9yIG1lc3NhZ2UgaWYgY3Vyc29yIHBsYWNlZCBhdCB0aGUgZXJyb3IgbGluZSAgKidnOnB5bW9kZV9saW50X21lc3NhZ2UnKgoibGV0IGc6cHltb2RlX2xpbnRfbWVzc2FnZSA9IDEKIiBkZWZhdWx0IGNvZGUgY2hlY2tlcnMgWydweWZsYWtlcycsICdwZXA4JywgJ21jY2FiZSddCiJsZXQgZzpweW1vZGVfbGludF9jaGVja2VycyA9IFsncGVwOCddCgoiIOiHquWKqOS/neWtmOinhuWbvgphdSBCdWZXaW5MZWF2ZSAqLiogc2lsZW50IG1rdmlldwphdSBCdWZXcml0ZVBvc3QgKi4qIHNpbGVudCBta3ZpZXcKYXUgQnVmV2luRW50ZXIgKi4qIHNpbGVudCBsb2FkdmlldwoK"
@@ -401,6 +401,7 @@ function kde_theme_switch() {
 }
 function config_kde_theme() {
     loginfo "正在执行 config_kde_theme"
+    prompt "开始配置KDE主题" || return 1 
     sudo $pac_cmd_ins latte-dock
     tmp_path="/tmp/themes"    # 主题下载目录
     mkdir -p $tmp_path
@@ -428,8 +429,7 @@ function config_kde_theme() {
 }
 function config_desktop_theme(){
     loginfo "正在执行 config_desktop_theme 安装配置桌面主题"
-    prompt "开始安装桌面主题"
-    [[ "$?" != "0" ]] && return 1
+    prompt "开始安装桌面主题" || return 1
     menu_head "当前桌面环境检查"
     menu_iteml "桌面环境" $gui_type
     menu_iteml "操作系统" $os_type
@@ -471,7 +471,7 @@ function do_desktop_all() {
 function config_langpack() {  # 中文语言支持 zh_CN.UTF-8
     local_charset="zh_CN.UTF-8" # 字符集名称
     charset_name="zh_CN.utf8"   # Linux系统使用的是没有-的写法(只是写法差别)
-    greenr_line "中文语言支持 $local_charset"
+    prompt "开始配置中文语言支持 $local_charset" || return 1 
     loginfo "正在执行 config_langpack ,支持 $local_charset 字符集"
     locale -a | grep -Ei "$local_charset|$charset_name" >/dev/null
     if [ "$?" != "0" ] ; then
@@ -505,6 +505,7 @@ function config_langpack() {  # 中文语言支持 zh_CN.UTF-8
 }
 function config_sshd() { # 开启SSH服务
     loginfo "正在执行 config_sshd"
+    prompt "开始启动SSHD服务" || return 1
     case "$os_type" in
         manjaro|opensuse*|ubuntu|debian|almalinux|centos)
             service_enable_start "sshd"
@@ -517,6 +518,7 @@ function config_sshd() { # 开启SSH服务
 }
 function config_source() { # 配置软件源为国内源(清华大学源速度更快，支持IPv6)
     loginfo "正在执行 config_source"
+    prompt "开始配置软件源为国内(清华大学源)" || return 1
     case "$os_type" in
         centos)
             if [ "${os_version:0:1}" -lt "8" ] ; then
@@ -600,6 +602,7 @@ function config_source() { # 配置软件源为国内源(清华大学源速度�
 }
 function config_user() {  # 添加管理员用户
     loginfo "正在执行 config_user"
+    prompt "开始配置新用户" || return 1
     read -p "`echo_green 输入用户名称:`" user_name
     [[ "$user_name" = "" ]] && echo "您没有输入的用户名字!" && exit 1
 
@@ -641,7 +644,7 @@ function config_user() {  # 添加管理员用户
 }
 function config_machine_id() {  # 生成 machine_id 唯一信息(从模板克隆主机时会有相同id情况，导致网络分配识别等问题)
     loginfo "正在执行 config_machine_id"
-    prompt "确定重新生成 machine_id(${BG}会影响购买激活的软件${NC})" || return 1
+    prompt "确定重新生成 machine_id(`echo_redr 会影响购买激活的软件`)" || return 1
     white_line "开始生成新的 machine_id :"
     id_file=/etc/machine-id
     loginfo "记录上一次的 machine-id : `cat $id_file`"
@@ -699,10 +702,10 @@ function do_config_all() { # 配置菜单选择
 
 function download_nvidia_driver() {
     loginfo "正在执行 download_nvidia_driver"
+    prompt "开始下载 N卡驱动" || return 1
     which jq >/dev/null || sudo $pac_cmd_ins jq
     ! which jq >/dev/null && logerr "缺少 jq 工具!" && return 1
     loginfo "您已经安装了 jq 命令: `which jq`"
-    # https://cn.download.nvidia.com/XFree86/Linux-x86_64/525.116.03/NVIDIA-Linux-x86_64-525.116.03.run
     tmp_json=/tmp/tmp.nvidia.menu.json
     # 下载链接(以 NVIDIA GeForce GTX 1660 SUPER 显卡为例,驱动兼容大部分 GeForce系列)
     dn_url='https://gfwsl.geforce.cn/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&psid=112&pfid=910&osID=12&languageCode=2052&beta=null&isWHQL=0&dltype=-1&dch=0&upCRD=null&qnf=0&sort1=0&numberOfResults=10'
@@ -759,6 +762,7 @@ function show_menu2_cuda() {
 }
 function download_cuda_toolkit() {
     loginfo "正在执行 download_cuda_toolkit"
+    prompt "开始下载 CUDA toolkit" || return 1
     # 为了放置此下载方式被限制，暂时提供固定版本下载链接(按需要人工更新)
     while true; do
         show_menu2_cuda
@@ -826,8 +830,7 @@ function install_sdwebui() {
     pyver="`python3 --version| cut -d. -f2`"
     [[ "$pyver" -lt "10" ]] && logerr "当前Python3版本过低,建议使用Python 3.10以上" && return 1
 
-    prompt "是否开始安装?"
-    [[ "$?" != "0" ]] && return 1
+    prompt "开始安装 stable-diffusion-webui" || return 1
     default_path="$HOME/stable-diffusion-webui"
     read -p "设置安装目录(默认：`echo_greenr ${default_path}`) ${PMT} " install_path
     if [ "$install_path" = "" ] ; then
