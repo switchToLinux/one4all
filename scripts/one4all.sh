@@ -104,9 +104,9 @@ function check_root() { [[ "`uid -u`" = "0" ]]  && ! prompt "提示:确认在roo
 
 function check_sys() { # 检查系统发行版信息，获取os_type/os_version/pac_cmd/pac_cmd_ins等变量
     if [ -f /etc/os-release ] ; then
-        ID=`awk -F'\"' '/^ID=/{print $2}' /etc/os-release`
-        os_version=`awk -F'\"' '/^VERSION_ID=/{print $2}' /etc/os-release`
-        os_codename=`awk -F'\"' '/^VERSION_CODENAME=/{print $2}' /etc/os-release`
+        ID=`awk -F= '/^ID=/{print $2}' /etc/os-release|sed 's/\"//g'`
+        os_version=`awk -F= '/^VERSION_ID=/{print $2}' /etc/os-release|sed 's/\"//g'`
+        os_codename=`awk -F= '/^VERSION_CODENAME=/{print $2}' /etc/os-release|sed 's/\"//g'`
         case "$ID" in
             centos)  # 仅支持 centos 8 以上，但不加限制，毕竟7用户很少了
                 os_type="$ID"
@@ -189,7 +189,7 @@ function common_download_github_latest() {
     loginfo "开始执行 common_download_github_latest, 参数[$@]"
     [[ "$#" -lt "3" ]] && logerr "参数数量错误,至少三个参数 owner repo tmp_path" && return 1
     mkdir -p "${tmp_path}"
-    url=`curl -sSL https://api.github.com/repos/${owner}/${repo}/releases/latest | awk -F \" "/browser_download_url/ && /$filter/{print $(NF-1)}"`
+    url=`curl -sSL https://api.github.com/repos/${owner}/${repo}/releases/latest | grep "$filter" |awk -F \" '/browser_download_url/{print $(NF-1)}'|head -1`
     str_base="`basename $url`"  # 压缩文件名(内部是文件或文件夹),因此安装规则无法标准化，只进行解压缩到 tmp_path 之后交给调用者操作    
     curl -o /tmp/${str_base} -L ${url}
     [[ "$?" != "0" ]] && logerr "下载Github latest包出错了, 解决网络问题再试试吧" && return 1
