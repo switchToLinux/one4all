@@ -359,7 +359,7 @@ function do_install_all() { # 安装菜单选择
             2) install_ohmyzsh      ;;
             3) install_tmux         ;;
             4) install_vim          ;;
-            q) return 0             ;;  # 返回上级菜单
+            q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
     done
@@ -452,7 +452,7 @@ function do_desktop_all() {
             1) config_desktop_theme ;;  # 桌面主题配置
             2) kde_theme_switch     ;;
 
-            q) return 0             ;;  # 返回上级菜单
+            q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
     done
@@ -683,7 +683,7 @@ function do_config_all() { # 配置菜单选择
             4) config_user          ;;
             5) config_hostid        ;;
             6) config_machine_id    ;;
-            q) return 0             ;;  # 返回上级菜单
+            q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
     done
@@ -753,7 +753,7 @@ function do_develop_all() {
         case "$str_answer" in
             1) install_sdwebui      ;;
 
-            q) return 0             ;;  # 返回上级菜单
+            q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
     done
@@ -768,6 +768,7 @@ function show_menu_main() {
     menu_item d 配置桌面主题
     menu_item g 安装显卡相关
     menu_tail
+    menu_item u "${TC}U${NC}pdate更新"
     menu_item q 退出
     menu_tail
 }
@@ -787,7 +788,18 @@ function start_main(){
             d) do_desktop_all   ;;  # 桌面环境配置工作(主题/图标等)
             g) do_graphics_all  ;;  # 显卡相关安装配置
 
-            q) return 0         ;;  # 返回上级菜单
+            u)
+                install_path="$0"
+                tmp_path="/tmp/tmp.one4all.sh"
+                echo "安装位置: $tmp_path"
+                update_url="https://raw.githubusercontent.com/switchToLinux/one4all/main/scripts/one4all.sh"
+                curl -o $tmp_path -SL $update_url
+                [[ "$?" != "0" ]] && logerr "抱歉！ $install_path 命令更新失败了!" && return 1
+                mv $install_path ${install_path}.bak && mv $tmp_path $install_path && chmod +x $install_path
+                loginfo "$install_path 命令更新完毕! ${BG}退出后请重新执行此命令${NC}."
+                exit 0
+            ;;
+            q|"") return 0         ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
     done
