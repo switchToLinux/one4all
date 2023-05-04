@@ -357,6 +357,7 @@ function show_menu_install() {
     menu_item 2 ohmyzsh
     menu_item 3 tmux
     menu_item 4 vim
+    menu_tail
     menu_item q 返回上级菜单
     menu_tail
 }
@@ -679,6 +680,7 @@ function show_menu_config() { # 显示 config 子菜单
     menu_item 4 创建用户
     menu_item 5 生成hostid
     menu_item 6 生成machineid
+    menu_tail
     menu_item q 返回上级菜单
     menu_tail
 }
@@ -863,6 +865,7 @@ function install_sdwebui() {
 function show_menu_develop() {
     menu_head "选项菜单"
     menu_item 1 SDWebUI
+    menu_tail
     menu_item q 返回上级菜单
     menu_tail
 }
