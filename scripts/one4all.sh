@@ -374,6 +374,61 @@ function do_install_all() { # 安装菜单选择
     done
 }
 
+############# GUI图形工具安装部分 #################################
+
+function install_davinci() {
+    loginfo "开始执行 install_davinci"
+    prompt "开始安装达芬奇" || return 1
+    menu_head "${RED} 提醒 ${NC}"
+    menu_info 1 "由于达芬奇工具需要用户登录才能获取下载链接,暂无法实现自动下载安装."
+    menu_info 2 "官网: https://www.blackmagicdesign.com/products/davinciresolve"
+    menu_info 3 "注册/登录 账号,选择下载适合自己系统的免费版本"
+    menu_info 4 "下载安装,安装好后即可使用啦"
+    menu_tail
+    loginfo "成功执行 install_davinci"
+}
+function install_xmind() {
+    loginfo "开始执行 install_xmind"
+    dn_url="https://dl3.xmind.net/Xmind-for-Linux-x86_64bit-22.11.3656.rpm"
+    deb_url="https://www.xmind.app/zen/download/linux_deb/"
+    rpm_url="https://www.xmind.app/zen/download/linux_rpm/"
+    tmp_file=""
+    case "$os_type" in
+        ubuntu|debian)  dn_url="$deb_url"  && tmp_file="/tmp/xmind_zen.deb"  ;;
+        opensuse*|centos) dn_url="$rpm_url" && tmp_file="/tmp/xmind_zen.rpm" ;;
+        *) logerr "暂不支持[$os_type]" ; return 1 ;;
+    esac
+    [[ -f "$tmp_file" ]] || curl -o $tmp_file -SL $dn_url
+    [[ "$?" != "0" ]] && logerr "下载 $tmp_file 失败! 网络出问题了." && return 2
+    loginfo "下载 $tmp_file 成功!"
+    sudo $pac_cmd_ins $tmp_file
+    [[ "$?" != "0" ]] && logerr "安装过程出了点问题" && return 3
+    loginfo "Xmind安装完成!到菜单里启动一下试试吧!"
+    rm -f "$tmp_file"
+    loginfo "成功执行 install_xmind"
+}
+
+function show_menu_gui() {
+    menu_head "安装图形工具选项菜单"
+    menu_item 1 达芬奇DaVinciResolve18
+    menu_item 2 "Xmind(思维导图)"
+    menu_tail
+    menu_item q 返回上级菜单
+    menu_tail
+}
+function do_install_gui() {
+    while true
+    do
+        show_menu_gui
+        read -r -n 1 -e  -p "`echo_greenr 请选择:` ${PMT} " str_answer
+        case "$str_answer" in
+            1) install_davinci      ;;
+            2) install_xmind        ;;
+            q|"") return 0          ;;  # 返回上级菜单
+            *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
+        esac
+    done
+}
 ############# GUI环境配置部分 ####################################
 function kde_theme_switch() {
     # 主题设置
