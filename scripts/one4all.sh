@@ -49,18 +49,21 @@ function redr_line()   { printf "\033[0;31;7m$@\033[0m\n" ; }
 function green_line()  { printf "\033[0;32;1m$@\033[0m\n" ; }
 function greenr_line() { printf "\033[0;32;7m$@\033[0m\n" ; }
 
-line_feed="+--------------------------------------------------+"
+line_feed="+------------------------------------------------------------+"
 
 item_index=0   # 记录菜单选项序号
 item_line_count=2   # 每行显示菜单数量
-MLEN=80   # 单行最大长度
-ILEN=25   # 单个选项长度
+MLEN=60   # 单行最大长度
+ILEN=30   # 单个选项长度
 
 function menu_line() { let rlen="$item_line_count * $ILEN + 1" ; echo -en "|$TC $@ $NC" ; tput hpa $rlen ; echo "|" ; }
 function menu_head() { echo $line_feed ;   menu_line "$@" ; echo $line_feed ; }
-# 一行可以有 item_line_count 个选项
+# 一行可以有 item_line_count 个菜单选项
 function menu_item() { let item_index=$item_index+1 ; n=$1 ; shift ; let rlen="$item_index * $ILEN + 1" ; echo -en "|  $BG ${n} $NC $@" ; tput hpa $rlen ; [[ "$item_index" == "$item_line_count" ]] && echo "|" && item_index=0 ; }
+# 输出单行长菜单选项,长度有限制
 function menu_iteml() { let rlen="$item_line_count * $ILEN + 1" ; n=$1 ; shift ; echo -en "|  $BG ${n} $NC $@" ; tput hpa $rlen ; echo "|" ; }
+# 用于输入长信息(非菜单选项),不限制结尾长度
+function menu_info() { n=$1 ; shift ; echo -e "|  $BG ${n} $NC $@" ; }
 function menu_tail() { [[ "$item_index" != "0" ]] && echo "|" ; echo $line_feed ; item_index=0 ; }
 
 # 日志记录
@@ -696,7 +699,117 @@ function do_config_all() { # 配置菜单选择
         esac
     done
 }
+########## 显卡相关  #########################################
 
+function download_nvidia_driver() {
+    loginfo "正在执行 download_nvidia_driver"
+    which jq >/dev/null || sudo $pac_cmd_ins jq
+    ! which jq >/dev/null && logerr "缺少 jq 工具!" && return 1
+    loginfo "您已经安装了 jq 命令: `which jq`"
+    # https://cn.download.nvidia.com/XFree86/Linux-x86_64/525.116.03/NVIDIA-Linux-x86_64-525.116.03.run
+    tmp_json=/tmp/tmp.nvidia.menu.json
+    # 下载链接(以 NVIDIA GeForce GTX 1660 SUPER 显卡为例,驱动兼容大部分 GeForce系列)
+    dn_url='https://gfwsl.geforce.cn/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&psid=112&pfid=910&osID=12&languageCode=2052&beta=null&isWHQL=0&dltype=-1&dch=0&upCRD=null&qnf=0&sort1=0&numberOfResults=10'
+    # 检查文件最后修改时间是否为 15天内 , 是就不重复下载，否则就下载新的json文件
+    old_json_file=`find $tmp_json  -type f -mtime -15 2>/dev/null`
+    if [ "$old_json_file" = "" ] ; then
+        curl -o $tmp_json $dn_url \
+            -H 'authority: gfwsl.geforce.cn' \
+            -H 'accept: */*' \
+            -H 'accept-language: zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7' \
+            -H 'cache-control: no-cache' \
+            -H 'dnt: 1' \
+            -H 'origin: https://www.nvidia.cn' \
+            -H 'pragma: no-cache' \
+            -H 'referer: https://www.nvidia.cn/' \
+            -H 'sec-ch-ua: "Google Chrome";v="111", "Not(A:Brand";v="8", "Chromium";v="111"' \
+            -H 'sec-ch-ua-mobile: ?0' \
+            -H 'sec-ch-ua-platform: "Linux"' \
+            -H 'sec-fetch-dest: empty' \
+            -H 'sec-fetch-mode: cors' \
+            -H 'sec-fetch-site: cross-site' \
+            -H 'user-agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36' \
+            --compressed
+        [[ "$?" != "0" ]] && logerr "获取驱动列表失败!" && return 1
+    fi
+    file_url=`cat $tmp_json |jq |awk '/DownloadURL/{ print $2 }' | sed -n 's/[",]//g; 1p'`
+    file_size=`cat $tmp_json |jq |awk '/DownloadURL/{ print $2 }' | sed -n 's/[",]//g; 2p'`
+    loginfo "下载地址: $file_url , 文件大小: $file_size MB"
+    tmp_file="/tmp/`basename $file_url`"
+
+    if [ -f "$tmp_file" ] ; then
+        echo -e "${RED}提醒： ${tmp_file} 文件已经下载过了!${NC}"
+    fi
+    prompt "下载Nvidia驱动安装包(文件大小: $file_size )" && ( ! curl -o $tmp_file -SL $file_url && logerr "下载Nvidia驱动失败! 检查网络后再试试吧" && return 2)
+
+    loginfo "Nvidia驱动保存位置: $tmp_file ."
+    menu_head "${RED}提示: 驱动安装方法:${NC}"
+    menu_info 1 "设置终端启动 systemctl set-default multi-user"
+    menu_info 2 "重启"
+    menu_info 3 "登录root用户终端,开始安装 sh $tmp_file"
+    menu_info 4 "恢复GUI启动 systemctl set-default graphical"
+    menu_info 5 "重启,安装完毕!"
+    menu_tail
+    loginfo "成功执行 download_nvidia_driver"
+}
+function show_menu2_cuda() {
+    menu_head "选项菜单"
+    menu_item 1 "CUDA12.1.1"
+    menu_item 2 "CUDA11.8.0"
+    menu_item 3 "CUDA11.3.1"
+    menu_tail
+    menu_item q 返回上级菜单
+    menu_tail
+}
+function download_cuda_toolkit() {
+    loginfo "正在执行 download_cuda_toolkit"
+    # 为了放置此下载方式被限制，暂时提供固定版本下载链接(按需要人工更新)
+    while true; do
+        show_menu2_cuda
+        read -r -n 1 -e  -p "`echo_greenr 请选择:` ${PMT} " str_answer
+        case "$str_answer" in
+            1) dn_url="https://developer.download.nvidia.com/compute/cuda/12.1.1/local_installers/cuda_12.1.1_530.30.02_linux.run"   ;;
+            2) dn_url="https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run"   ;;
+            3) dn_url="https://developer.download.nvidia.com/compute/cuda/11.3.1/local_installers/cuda_11.3.1_465.19.01_linux.run"   ;;
+
+            q|"") return 0              ;;  # 返回上级菜单
+            *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
+        esac
+        [[ "$dn_url" != "" ]] && break
+    done
+    tmp_file="/tmp/`basename $dn_url`"
+    old_file=`find $tmp_file  -type f -mtime -15 2>/dev/null`
+    if [ "$old_file" = "" ] ; then
+        curl -o $tmp_file $dn_url
+        [[ "$?" != "0" ]] && logerr "获取驱动列表失败!" && return 1
+        loginfo "下载文件 $tmp_file 成功!"
+    else
+        loginfo "$tmp_file 文件已经下载过了"
+    fi
+    menu_head "${RED}安装提醒${NC}" "安装方法与显卡驱动安装过程一致,${RED}重启至终端下安装${NC}."
+    loginfo "成功执行 download_cuda_toolkit"
+}
+function show_menu_graphics() {
+    menu_head "选项菜单"
+    menu_item 1 下载N卡GeForce系列驱动
+    menu_item 2 "下载N卡CUDA安装包"
+    menu_tail
+    menu_item q 返回上级菜单
+    menu_tail
+}
+function do_graphics_all() {
+    while true; do
+        show_menu_graphics
+        read -r -n 1 -e  -p "`echo_greenr 请选择:` ${PMT} " str_answer
+        case "$str_answer" in
+            1) download_nvidia_driver   ;;
+            2) download_cuda_toolkit    ;;
+
+            q|"") return 0              ;;  # 返回上级菜单
+            *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
+        esac
+    done
+}
 ########## 开发环境 install_develop ##########################
 function install_sdwebui() {
     loginfo "开始执行 install_sdwebui, 安装源: https://github.com/AUTOMATIC1111/stable-diffusion-webui"
