@@ -192,7 +192,7 @@ function common_download_github_latest() {
     [[ "$?" != "0" ]] && logerr "下载Github latest包出错了, 解决网络问题再试试吧" && return 1
     
     echo $str_base | grep -E "tar.gz|.tgz|.gz|tar.bz2|.bz2|tar.xz|.xz" >/dev/null
-    [[ "$?" != "0" ]] && logerr "不识别的压缩文件包后缀[$str_base]" && return 2
+    [[ "$?" != "0" ]] && mv /tmp/$str_base $tmp_path && loginfo "非压缩文件包[$str_base], 直接存放 $tmp_path " && return 0
     
     tar axvf /tmp/$str_base -C $tmp_path  &&  loginfo "解压缩 $str_base 文件到 $tmp_path 目录成功"
     [[ "$?" != "0" ]] && logerr "解压失败! 是否下载文件已损坏或者压缩格式不正确?" && return 3
@@ -407,11 +407,32 @@ function install_xmind() {
     rm -f "$tmp_file"
     loginfo "成功执行 install_xmind"
 }
-
+function install_appimagelauncher() {
+    loginfo "开始执行 install_appimagelauncher"
+    prompt "开始安装 appimagelauncher" || return 1
+    case "$os_type" in
+        ubuntu|debian)
+            sudo apt install software-properties-common
+            sudo add-apt-repository ppa:appimagelauncher-team/stable
+            sudo apt update
+            sudo apt install appimagelauncher
+            ;;
+        centos|opensuse*)
+            # rpm based
+            tmp_path="/tmp/appimage"
+            common_download_github_latest TheAssassin AppImageLauncher $tmp_path "x86_64.rpm"  || ( logerr "下载失败啦!" && return 1 )
+            sudo $pac_cmd_ins $tmp_path/appimagelauncher*x86_64.rpm
+            ;;
+        manjaro|arch*)  sudo ${pac_cmd_ins} appimagelauncher  ;;
+        *)  logerr "不支持系统类型[$os_type]" ; return 2 ;;
+    esac
+    loginfo "成功执行 install_appimagelauncher"
+}
 function show_menu_gui() {
     menu_head "安装图形工具选项菜单"
     menu_item 1 达芬奇DaVinciResolve18
     menu_item 2 "Xmind(思维导图)"
+    menu_item 3 "安装AppImageLauncher"
     menu_tail
     menu_item q 返回上级菜单
     menu_tail
@@ -424,6 +445,7 @@ function do_install_gui() {
         case "$str_answer" in
             1) install_davinci      ;;
             2) install_xmind        ;;
+            3) install_appimagelauncher ;;
             q|"") return 0          ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
