@@ -143,7 +143,8 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
             ;;
     esac
     cpu_arch="`uname -m`"
-    loginfo "${BG}操作系统${NC}:$os_type,${BG}版本${NC}:$os_version,${BG}架构${NC}:$cpu_arch,${BG}桌面类型${NC}:$gui_type,${BG}包管理命令${NC}:$pac_cmd"
+    loginfo "${BG}系统${NC}:$os_type $os_version $cpu_arch"
+    loginfo "${BG}桌面${NC}:$gui_type,${BG}包管理命令${NC}:$pac_cmd"
     if [ -z "$pac_cmd" ] ; then
         return 1
     fi
@@ -191,6 +192,9 @@ function common_download_github_latest() {
     curl -o /tmp/${str_base} -L ${url}
     [[ "$?" != "0" ]] && logerr "下载Github latest包出错了, 解决网络问题再试试吧" && return 1
     
+    echo $str_base | grep -E ".zip" >/dev/null
+    [[ "$?" = "0" ]] && echo "zip格式压缩文件" && unzip -o /tmp/$str_base -d $tmp_path &&  echo "解压缩 $str_base 文件到 $tmp_path 目录成功" && return 0
+
     echo $str_base | grep -E "tar.gz|.tgz|.gz|tar.bz2|.bz2|tar.xz|.xz" >/dev/null
     [[ "$?" != "0" ]] && mv /tmp/$str_base $tmp_path && loginfo "非压缩文件包[$str_base], 直接存放 $tmp_path " && return 0
     
