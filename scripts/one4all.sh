@@ -939,10 +939,40 @@ function install_sdwebui() {
     ./webui.sh
     loginfo "成功执行 install_sdwebui"
 }
+function install_elasticsearch() {
+    es_url="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.7.1-linux-x86_64.tar.gz"
+    es_sha512="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.7.1-linux-x86_64.tar.gz.sha512"
 
+    install_path="${1:-.}"       # 默认安装路径
+    prompt "开始安装 Elasticsearch...(默认安装位置为： ${install_path})"
+    if [ "$?" != "0" ] ; then
+        read -p "请输入安装目录:" install_path
+    fi
+    es_path="${install_path}/elasticsearch-8.7.1/"
+    [[ -d "$install_path" ]] || mkdir $install_path || ( loginfo "目录创建失败!" && return 1 )
+    [[ -d "$es_path" ]] && loginfo "已经安装过了!" && return 1
+
+    tmp_dir="/tmp"
+    filename="`basename $es_url`"
+    curl -C - -o ${tmp_dir}/$filename ${es_url}
+    filesha512="`basename $es_sha512`"
+    curl -o ${tmp_dir}/${filesha512} ${es_sha512}
+    shasum -a 512 -c ${filesha512} || ( loginfo " sha512 签名验证失败" && return 1 )
+    
+    tar axvf ${tmp_dir}/${filename} -C $install_path  &&  loginfo "解压缩 $filename 文件到 $install_path 目录成功"
+    cd $es_path || ( echo "成功失败! 安装目录: $es_path" && return 1 )
+    loginfo "成功安装目录: $es_path"
+    loginfo "使用前请设置 环境变量(添加到 ~/.bashrc 文件): "
+    loginfo " export ES_HOME=$es_path "
+    loginfo " export ES_JAVA_OPTS=\"-Xms512m -Xmx512m\""
+    loginfo "运行命令:   \$ES_HOME/bin/elasticsearch -d -p /tmp/myes.pid"
+    loginfo "停止命令:   pkill -F /tmp/myes.pid"
+    loginfo "配置文件:   \$ES_HOME/config/elasticsearch.yml"
+}
 function show_menu_develop() {
     menu_head "选项菜单"
-    menu_item 1 SDWebUI
+    menu_item 1 安装SDWebUI
+    menu_item 2 安装Elasticsearch
     menu_tail
     menu_item q 返回上级菜单
     menu_tail
@@ -954,6 +984,7 @@ function do_develop_all() {
         read -r -n 1 -e  -p "`echo_greenr 请选择:` ${PMT} " str_answer
         case "$str_answer" in
             1) install_sdwebui      ;;
+            2) install_elasticsearch ;;
 
             q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
