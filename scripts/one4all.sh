@@ -313,6 +313,20 @@ function install_tmux() {  # Terminal终端会话管理工具,类似Screen
     echo $config_data | base64 -d  > $HOME/.tmux.conf
     loginfo "成功执行 install_tmux"
 }
+function install_frp() {
+    loginfo "正在执行 install_frp"
+    which frpc && loginfo "frpc 命令已经安装过了" && return 0
+    which frps && loginfo "frps 命令已经安装过了" && return 0
+    prompt "开始安装 frp" || return 1
+    tmp_path=/tmp/frp
+    common_download_github_latest fatedier frp $tmp_path linux_amd64
+    [[ "$?" != "0" ]] && logerr "下载 frp 预编译可执行程序失败! 安装 frp 失败." && return 1
+    sudo cp $tmp_path/frp? /usr/local/bin/ && sudo mkdir /etc/frp && sudo cp $tmp_path/frp*.ini /etc/frp/
+    frps -h || ( logerr "安装没成功， frps 命令执行失败." && return 1 )
+    rm -rf $tmp_path
+    loginfo "配置提醒: 参考配置说明，安全考虑，请在配置中加入 token 参数更安全"
+    loginfo "成功执行 install_frp"
+}
 function install_ctags() {
     # 源码编译
     loginfo "开始执行 install_ctags"
@@ -348,12 +362,38 @@ function install_vim() {
     fi
     install_ctags
 }
+function install_yq() {
+    loginfo "正在执行 install_yq"
+    which yq && loginfo "已经安装过 yq 工具了!" && return 0
+    prompt "开始安装 yq" || return 1
+    dn_url="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
+    tmp_file="/tmp/yq"
+    curl -o ${tmp_file} -sSL $dn_url && chmod +x ${tmp_file}
+    sudo mv ${tmp_file} /usr/local/bin
+    yq -V
+    loginfo "成功执行 install_yq"
+}
+function install_jq() {
+    loginfo "正在执行 install_jq"
+    which jq && loginfo "已经安装过 jq 工具了!" && return 0
+    prompt "开始安装 jq" || return 1
+    dn_url="https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64"
+    tmp_file="/tmp/jq"
+    curl -o ${tmp_file} -sSL $dn_url && chmod +x ${tmp_file}
+    sudo mv ${tmp_file} /usr/local/bin
+    jq -V
+    loginfo "成功执行 install_jq"
+}
+
 function show_menu_install() {
     menu_head "安装选项菜单"
     menu_item 1 Anaconda3
     menu_item 2 ohmyzsh
     menu_item 3 tmux
     menu_item 4 vim
+    menu_item 5 frpc/frps
+    menu_item 6 yq
+    menu_item 7 jq
     menu_tail
     menu_item q 返回上级菜单
     menu_tail
@@ -368,6 +408,9 @@ function do_install_all() { # 安装菜单选择
             2) install_ohmyzsh      ;;
             3) install_tmux         ;;
             4) install_vim          ;;
+            5) install_frp          ;;
+            6) install_yq           ;;
+            7) install_jq           ;;
             q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
@@ -395,7 +438,7 @@ function install_xmind() {
     tmp_file=""
     case "$os_type" in
         ubuntu|debian)  dn_url="$deb_url"  && tmp_file="/tmp/xmind_zen.deb"  ;;
-        opensuse*|centos) dn_url="$rpm_url" && tmp_file="/tmp/xmind_zen.rpm" ;;
+        opensuse*|centos|rhel*) dn_url="$rpm_url" && tmp_file="/tmp/xmind_zen.rpm" ;;
         *) logerr "暂不支持[$os_type]" ; return 1 ;;
     esac
     [[ -f "$tmp_file" ]] || curl -o $tmp_file -SL $dn_url
