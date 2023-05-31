@@ -29,6 +29,9 @@ pac_cmd_ins=""      # 包管理命令
 cpu_arch=""         # CPU架构类型，仅支持x86_64
 gui_type=""         # GUI桌面环境类型
 
+
+curl_cmd="curl -C - "  # 支持断点继续下载
+
 # Define Colors
 RED='\e[41m'
 NC='\e[0m' # No color
@@ -170,7 +173,7 @@ function common_install_command() {
     read -p "设置安装位置(默认目录:/usr/local/bin):" str_path
     [[ ! -d "$str_path" ]] && loginfo "$str_path 目录不存在, 使用默认目录 /usr/local/bin :" && str_path="/usr/local/bin"
     $str_file="$str_path/$str_cmd"
-    curl -o /tmp/${str_cmd}.tmp -L $str_url
+    ${curl_cmd} -o /tmp/${str_cmd}.tmp -L $str_url
     [[ "$?" != "0" ]] && logerr "${RED}下载失败!分析原因后再试吧.${TC}" && return 1
     mv /tmp/${str_cmd}.tmp $str_file && chmod +x $str_file
     # 权限问题失败
@@ -186,9 +189,9 @@ function common_download_github_latest() {
     loginfo "开始执行 common_download_github_latest, 参数[$@]"
     [[ "$#" -lt "3" ]] && logerr "参数数量错误,至少三个参数 owner repo tmp_path" && return 1
     mkdir -p "${tmp_path}"
-    url=`curl -sSL https://api.github.com/repos/${owner}/${repo}/releases/latest | grep "$filter" |awk -F \" '/browser_download_url/{print $(NF-1)}'|head -1`
+    url=`${curl_cmd} -sSL https://api.github.com/repos/${owner}/${repo}/releases/latest | grep "$filter" |awk -F \" '/browser_download_url/{print $(NF-1)}'|head -1`
     str_base="`basename $url`"  # 压缩文件名(内部是文件或文件夹),因此安装规则无法标准化，只进行解压缩到 tmp_path 之后交给调用者操作    
-    curl -o /tmp/${str_base} -L ${url}
+    ${curl_cmd} -o /tmp/${str_base} -L ${url}
     [[ "$?" != "0" ]] && logerr "下载Github latest包出错了, 解决网络问题再试试吧" && return 1
     
     echo $str_base | grep -E "tar.gz|.tgz|.gz|tar.bz2|.bz2|tar.xz|.xz" >/dev/null
@@ -237,7 +240,7 @@ function install_anaconda() {
     prompt "开始安装 Anaconda3" || return 1
     which anaconda >/dev/null 2>&1 && loginfo "Anaconda3已经安装过了!" && return 1
     tmp_file=/tmp/.anaconda.html
-    curl -o $tmp_file -sSL https://repo.anaconda.com/archive/
+    ${curl_cmd} -o $tmp_file -sSL https://repo.anaconda.com/archive/
     [[ "$?" != "0" ]]  && loginfo "你的网络有问题!无法访问Anaconda网站" && return 1
 
     anaconda_file=`awk -F'\"' '/Linux-x86_64.sh/{print $2}' $tmp_file |head -1`
@@ -248,7 +251,7 @@ function install_anaconda() {
         echo -en "${RED}提醒：文件已经下载过了!${NC}"
     fi
     prompt "下载Anaconda3安装包(文件预计 $anaconda_size, date:$anaconda_date)"
-    [[ "$?" == "0" ]] && curl -o /tmp/$anaconda_file -L https://repo.anaconda.com/archive/$anaconda_file
+    [[ "$?" == "0" ]] && ${curl_cmd} -o /tmp/$anaconda_file -L https://repo.anaconda.com/archive/$anaconda_file
 
     default_python_install_path="$HOME/anaconda3"       # Python3 默认安装路径
     prompt "开始安装 Anaconda3...(默认安装位置为： ${default_python_install_path})"
@@ -281,7 +284,7 @@ function install_ohmyzsh() {
     loginfo "正在执行 install_ohmyzsh"
     prompt "开始安装 ohmyzsh" || return 1
     [[ -d "$HOME/.oh-my-zsh" ]] && loginfo "已经安装过 ohmyzsh 环境了" && return 0
-    sh -c "RUNZSH=no $(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    sh -c "RUNZSH=no $(${curl_cmd} -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     [[ "$?" = "0" ]]  || (redr_line "安装ohmyzsh失败了!! 看看报错信息! 稍后重新安装试试!"  && return 1)
 
     loginfo "开始安装Powerline字体"
@@ -368,7 +371,7 @@ function install_yq() {
     prompt "开始安装 yq" || return 1
     dn_url="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
     tmp_file="/tmp/yq"
-    curl -o ${tmp_file} -sSL $dn_url && chmod +x ${tmp_file}
+    ${curl_cmd} -o ${tmp_file} -sSL $dn_url && chmod +x ${tmp_file}
     sudo mv ${tmp_file} /usr/local/bin
     yq -V
     loginfo "成功执行 install_yq"
@@ -379,7 +382,7 @@ function install_jq() {
     prompt "开始安装 jq" || return 1
     dn_url="https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64"
     tmp_file="/tmp/jq"
-    curl -o ${tmp_file} -sSL $dn_url && chmod +x ${tmp_file}
+    ${curl_cmd} -o ${tmp_file} -sSL $dn_url && chmod +x ${tmp_file}
     sudo mv ${tmp_file} /usr/local/bin
     jq -V
     loginfo "成功执行 install_jq"
@@ -441,7 +444,7 @@ function install_xmind() {
         opensuse*|centos|rhel*) dn_url="$rpm_url" && tmp_file="/tmp/xmind_zen.rpm" ;;
         *) logerr "暂不支持[$os_type]" ; return 1 ;;
     esac
-    [[ -f "$tmp_file" ]] || curl -o $tmp_file -SL $dn_url
+    [[ -f "$tmp_file" ]] || ${curl_cmd} -o $tmp_file -SL $dn_url
     [[ "$?" != "0" ]] && logerr "下载 $tmp_file 失败! 网络出问题了." && return 2
     loginfo "下载 $tmp_file 成功!"
     sudo $pac_cmd_ins $tmp_file
@@ -832,7 +835,7 @@ function download_nvidia_driver() {
     # 检查文件最后修改时间是否为 15天内 , 是就不重复下载，否则就下载新的json文件
     old_json_file=`find $tmp_json  -type f -mtime -15 2>/dev/null`
     if [ "$old_json_file" = "" ] ; then
-        curl -o $tmp_json $dn_url \
+        ${curl_cmd} -o $tmp_json $dn_url \
             -H 'authority: gfwsl.geforce.cn' \
             -H 'accept: */*' \
             -H 'accept-language: zh-CN,zh;q=0.9,en;q=0.8,zh-TW;q=0.7' \
@@ -859,7 +862,7 @@ function download_nvidia_driver() {
     if [ -f "$tmp_file" ] ; then
         echo -e "${RED}提醒： ${tmp_file} 文件已经下载过了!${NC}"
     fi
-    prompt "下载Nvidia驱动安装包(文件大小: $file_size )" && ( ! curl -o $tmp_file -SL $file_url && logerr "下载Nvidia驱动失败! 检查网络后再试试吧" && return 2)
+    prompt "下载Nvidia驱动安装包(文件大小: $file_size )" && ( ! ${curl_cmd} -o $tmp_file -SL $file_url && logerr "下载Nvidia驱动失败! 检查网络后再试试吧" && return 2)
 
     loginfo "Nvidia驱动保存位置: $tmp_file ."
     menu_head "${RED}提示: 驱动安装方法:${NC}"
@@ -900,7 +903,7 @@ function download_cuda_toolkit() {
     tmp_file="/tmp/`basename $dn_url`"
     old_file=`find $tmp_file  -type f -mtime -15 2>/dev/null`
     if [ "$old_file" = "" ] ; then
-        curl -o $tmp_file $dn_url
+        ${curl_cmd} -o $tmp_file $dn_url
         [[ "$?" != "0" ]] && logerr "获取驱动列表失败!" && return 1
         loginfo "下载文件 $tmp_file 成功!"
     else
@@ -979,9 +982,83 @@ function install_sdwebui() {
     loginfo "成功执行 install_sdwebui"
 }
 
+function install_nodejs() {
+    nodejs_type="${1:-LTS}"   # nodejs 类型 LTS 或 latest最新版
+    loginfo "正在执行 install_nodejs"
+    which node && loginfo "已经安装了 nodejs 环境 :`node -v`" && return 0
+    prompt "开始安装 nodejs环境" || return 1
+    read -p "设置安装位置(比如 /devel 目录,自动创建子目录nodejs):" str_outpath
+    [[ -d "$str_outpath" ]]  || return 2
+
+    read -p "选择安装版本(16/18/20/latest,回车默认latest)" nodejs_ver
+    ver_url="https://nodejs.org/download/release/latest-v${nodejs_ver}.x/"
+    [[ "$nodejs_ver" == "" || "$nodejs_ver" == "latest" ]] && ver_url="https://nodejs.org/download/release/latest"
+    [[ "$nodejs_ver" == "" || "$nodejs_ver" == "latest" ]] || [[ "$nodejs_ver" -gt "0" || "$nodejs_ver" -lt "100" ]] || return 3
+    tarfile=`${curl_cmd} -L $ver_url  | grep "linux-x64.tar.xz"|awk -F"href=\"" '{ print $2 }' | awk -F"\"" '{print $1}'`
+    [[ "$tarfile" == "" ]] && loginfo "没找到 v${nodejs_ver} 版本 nodejs" && return 3
+
+    dn_url="$ver_url/$tarfile"
+    tmp_path=/tmp
+    outfile="`echo $tarfile | sed 's/.tar.xz//g'`"
+    tmp_file="$tmp_path/$tarfile"
+    ${curl_cmd} -o $tmp_file -L $dn_url || return 1
+    tar axvf $tmp_file -C ${str_outpath}
+    # 创建软链接
+    dst_dir="node_v${nodejs_ver}"
+    [[ -e "${str_outpath}/${dst_dir}" ]] || ( cd ${str_outpath} && ln -sf ${outfile} ${dst_dir} && cd - )
+    env_path="${str_outpath}/${dst_dir}/bin:\$PATH"
+    loginfo "手工设置环境变量:  export PATH=$env_path"
+    for rcfile in ~/.zshrc ~/.bashrc
+    do
+        if [ -f "$rcfile" ] ; then
+            grep "${str_outpath}/${dst_dir}/bin" $rcfile || echo "export PATH=$env_path" >> $rcfile
+        fi
+    done
+    loginfo "成功执行 install_nodejs"
+}
+
+function install_golang() {
+    loginfo "开始执行 install_golang"
+    which go && loginfo "已经安装了 go语言开发环境 :`go version`" && return 0
+    prompt "开始安装 go语言开发环境" || return 1
+    read -p "设置安装位置(比如 /devel 目录,自动创建子目录go):" str_outpath
+    [[ -d "$str_outpath" ]]  || return 2
+
+    ver_url="https://go.dev/dl/?mode=json"
+    tarfile=`${curl_cmd} $ver_url | grep linux-amd64.tar.gz|head -1| awk -F"\"" '{ print $4 }'`
+
+    dn_url="https://go.dev/dl/$tarfile"
+    tmp_path=/tmp
+    outfile="`echo $tarfile | sed 's/.tar.gz//g'`"
+    tmp_file="$tmp_path/$tarfile"
+    ${curl_cmd} -o $tmp_file -L $dn_url || return 1
+    tar axvf $tmp_file -C ${str_outpath}
+    # 创建软链接
+    dst_dir="go"
+    [[ -e "${str_outpath}/${dst_dir}" ]] || ( cd ${str_outpath} && ln -sf ${outfile} ${dst_dir} && cd - )
+    read -p "设置GOPATH(Go代码开发路径): " str_gopath
+    env_path="${str_outpath}/${dst_dir}/bin:\$PATH"
+    if [ "$str_gopath" != "" ] ; then
+        [[ -d "$str_gopath" ]] && loginfo " GOPATH=$str_gopath 已经存在了" && return 1
+        mkdir $str_gopath
+        [[ "$?" != "0" ]] && loginfo "$str_gopath 目录创建失败!" && return 2
+        env_path="$str_gopath/bin:${str_outpath}/${dst_dir}/bin:\$PATH"
+    fi
+    for rcfile in ~/.zshrc ~/.bashrc
+    do
+        if [ -f "$rcfile" ] ; then
+            grep "${str_outpath}/${dst_dir}/bin" $rcfile || echo "export PATH=$env_path" >> $rcfile
+            mkdir -p ~/.config/go
+            echo "GOPATH=$str_gopath" > ~/.config/go/env
+        fi
+    done
+    loginfo "成功执行 install_golang"
+}
 function show_menu_develop() {
     menu_head "选项菜单"
-    menu_item 1 SDWebUI
+    menu_item 1 stable-diffusion-webui
+    menu_item 2 Node.js-JavaScript
+    menu_item 3 GoLang
     menu_tail
     menu_item q 返回上级菜单
     menu_tail
@@ -993,6 +1070,8 @@ function do_develop_all() {
         read -r -n 1 -e  -p "`echo_greenr 请选择:` ${PMT} " str_answer
         case "$str_answer" in
             1) install_sdwebui      ;;
+            2) install_nodejs       ;;
+            3) install_golang       ;;
 
             q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
@@ -1032,7 +1111,7 @@ function start_main(){
                 tmp_path="/tmp/tmp.one4all.sh"
                 echo "安装位置: $tmp_path"
                 update_url="https://raw.githubusercontent.com/switchToLinux/one4all/main/scripts/one4all.sh"
-                curl -o $tmp_path -SL $update_url
+                ${curl_cmd} -o $tmp_path -SL $update_url
                 [[ "$?" != "0" ]] && logerr "抱歉！ $install_path 命令更新失败了!" && return 1
                 mv $install_path ${install_path}.bak && mv $tmp_path $install_path && chmod +x $install_path
                 loginfo "$install_path 命令更新完毕! ${BG}退出后请重新执行此命令${NC}."
