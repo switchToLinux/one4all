@@ -108,9 +108,9 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
         os_version=`awk -F= '/^VERSION_ID=/{print $2}' /etc/os-release|sed 's/\"//g'`
         os_codename=`awk -F= '/^VERSION_CODENAME=/{print $2}' /etc/os-release|sed 's/\"//g'`
         case "$ID" in
-            centos)  # 仅支持 centos 8 以上，但不加限制，毕竟7用户很少了
+            centos|fedora)  # 仅支持 centos 8 以上，但不加限制，毕竟7用户很少了
                 os_type="$ID"
-                pac_cmd="yum"
+                pac_cmd="dnf"
                 pac_cmd_ins="$pac_cmd install -y"
                 ;;
             opensuse*)
@@ -567,10 +567,103 @@ function config_desktop_theme(){
     esac
 }
 
+function compile_i3wm() {
+    prompt "开始源码编译安装最新版 i3wm(需要安装依赖包和编译工具等)" || return 1
+    loginfo "开始编译 i3"
+    case "$os_type" in
+        fedora|cenos)
+            sudo $pac_cmd_ins libxcb-devel xcb-util-keysyms-devel xcb-util-devel \
+            xcb-util-wm-devel xcb-util-xrm-devel yajl-devel libXrandr-devel \
+            startup-notification-devel libev-devel xcb-util-cursor-devel \
+            libXinerama-devel libxkbcommon-devel libxkbcommon-x11-devel pcre-devel \
+            pango-devel git gcc automake meson ninja-build
+            ;;
+        ubuntu)
+            sudo $pac_cmd_ins libxcb1-dev libxcb-keysyms1-dev libpango1.0-dev \
+            libxcb-util0-dev libxcb-icccm4-dev libyajl-dev \
+            libstartup-notification0-dev libxcb-randr0-dev \
+            libev-dev libxcb-cursor-dev libxcb-xinerama0-dev \
+            libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev \
+            autoconf libxcb-xrm0 libxcb-xrm-dev automake libxcb-shape0-dev meson ninja-build
+            ;;
+        debian)
+            sudo $pac_cmd_ins dh-autoreconf libxcb-keysyms1-dev libpango1.0-dev libxcb-util0-dev \
+            xcb libxcb1-dev libxcb-icccm4-dev libyajl-dev libev-dev libxcb-xkb-dev libxcb-cursor-dev \
+            libxkbcommon-dev libxcb-xinerama0-dev libxkbcommon-x11-dev libstartup-notification0-dev \
+            libxcb-randr0-dev libxcb-xrm0 libxcb-xrm-dev libxcb-shape0 \
+            libxcb-shape0-dev meson ninja-build
+            ;;
+        *)
+            loginfo "不支持此系统[$os_type]"
+            return 1
+        ;;
+    esac
+
+    tmp_path="/tmp/i3"
+    git clone https://github.com/i3/i3.git $tmp_path
+    cd $tmp_path && mkdir build && cd build && meson ../ && ninja  && sudo ninja install
+    [[ "$?" != "0" ]] && loginfo "编译出现错误" && return 1
+    loginfo "完成 编译安装 i3wm"
+}
+function install_i3wm() {
+    loginfo "开始执行 install_i3wm"
+    which i3 && loginfo "已经安装过 i3wm: `i3 -v`" && return 0
+    # 先尝试安装预编译包
+    case "$os_type" in
+        centos|fedora)
+            sudo $pac_cmd_ins i3 i3-ipc i3status i3lock dmenu terminator --exclude=rxvt-unicode
+            ;;
+        manjaro)
+            sudo $pac_cmd_ins i3 i3-lock i3status
+            ;;
+        *)
+            compile_i3wm
+            ;;
+    esac
+    loginfo "成功执行 install_i3wm"
+}
+function config_i3wm() {
+    #配置参考: https://i3wm.org/docs/userguide.html
+    loginfo "开始执行 config_i3wm"
+    which i3
+    [[ "$?" != "0" ]] && loginfo "您没安装过 i3wm" && return 0
+    sudo $pac_cmd_ins feh iw lm-sensors xautolock lxpolkit picom dunst
+    loginfo "安装 Powerline Font"
+    tmp_path=/tmp/fonts
+    git clone https://github.com/powerline/fonts.git --depth=1 $tmp_path
+    cd $tmp_path && ./install.sh && cd - && rm -rf $tmp_path
+    loginfo "生成默认的配置 ~/.i3/config"
+    mkdir ~/.i3
+    ${curl_cmd} -o ~/.i3/config -L https://raw.githubusercontent.com/dikiaap/dotfiles/master/.i3/config
+    prompt "安装 polybar(底部状态栏) " && sudo $pac_cmd_ins polybar
+    prompt "安装 i3blocks (底部状态栏)" && sudo $pac_cmd_ins i3blocks
+    prompt "克隆 i3blocks-contrib 所有脚本" && git clone https://github.com/vivien/i3blocks-contrib ~/.config/i3blocks && cd !$ && cp config.example config
+    loginfo "生成默认的 ~/.config/i3blocks/config 配置文件"
+    loginfo "i3blocks配置参考文档: https://vivien.github.io/i3blocks/"
+    prompt "安装 Rofi" && sudo $pac_cmd_ins rofi
+    if ! which rofi >/dev/null ; then #安装预编译版本失败,源码编译
+        tmp_path="/tmp/rofi"
+        git clone --recursive https://github.com/DaveDavenport/rofi.git  $tmp_path
+        [[ "$?" == "0" ]] && cd $tmp_path &&  mkdir build && cd build && make && sudo make install
+        [[ "$?" != "0" ]] && loginfo "安装 Rofi 失败!请自行检查错误原因再重新尝试执行 : cd $tmp_path &&  mkdir build && cd build && make && sudo make install"
+    else
+        loginfo "成功安装 rofi"
+    fi
+    rofi-theme-selector    # 选择主题
+
+    loginfo "安装 xfce4-terminal(支持透明度设置) , 可自选终端 alacritty"
+    sudo $pac_cmd_ins xfce4-terminal
+
+    loginfo "默认的背景图片目录: ~/.wallpapers/"
+    loginfo "完成执行 config_i3wm"
+
+}
 function show_menu_desktop() { # 显示子菜单
     menu_head "配置选项菜单"
     menu_item 1 安装桌面主题
     menu_item 2 桌面主题切换
+    menu_item 3 安装i3wm-源码编译
+    menu_item 4 配置i3wm-基础配置
     menu_tail
     menu_item q 返回上级菜单
     menu_tail
@@ -583,6 +676,8 @@ function do_desktop_all() {
         case "$str_answer" in
             1) config_desktop_theme ;;  # 桌面主题配置
             2) kde_theme_switch     ;;
+            3) install_i3wm         ;;
+            4) config_i3wm          ;;
 
             q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
@@ -791,6 +886,13 @@ function config_hostid() { # 生成 hostid 唯一信息(根据网卡ip生成)
     loginfo "成功执行 config_hostid, 新hostid=$TC`hostid`$NC"
 }
 
+function config_powerline_fonts() {
+    loginfo "开始安装 Powerline Font"
+    tmp_path=/tmp/fonts
+    git clone https://github.com/powerline/fonts.git --depth=1 $tmp_path
+    cd $tmp_path && ./install.sh && cd - && rm -rf $tmp_path
+    loginfo "完成安装 Powerline Font"
+}
 
 function show_menu_config() { # 显示 config 子菜单
     menu_head "配置选项菜单"
@@ -800,6 +902,7 @@ function show_menu_config() { # 显示 config 子菜单
     menu_item 4 创建用户
     menu_item 5 生成hostid
     menu_item 6 生成machineid
+    menu_item 7 配置PowerlineFonts
     menu_tail
     menu_item q 返回上级菜单
     menu_tail
@@ -816,6 +919,7 @@ function do_config_all() { # 配置菜单选择
             4) config_user          ;;
             5) config_hostid        ;;
             6) config_machine_id    ;;
+            7) config_powerline_fonts ;;
             q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
