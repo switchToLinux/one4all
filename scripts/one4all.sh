@@ -56,8 +56,12 @@ line_feed="+------------------------------------------------------------+"
 
 item_index=0   # 记录菜单选项序号
 item_line_count=2   # 每行显示菜单数量
-MLEN=60   # 单行最大长度
 ILEN=30   # 单个选项长度
+MLEN=$((${ILEN} * ${item_line_count}))   # 单行最大长度
+
+# 指定 TERM ，避免对齐问题(已知某些rxvt-unicode终端版本存在对齐问题)
+export TERM=xterm
+export COLORTERM=truecolor
 
 function menu_line() { let rlen="$item_line_count * $ILEN + 1" ; echo -en "|$TC $@ $NC" ; tput hpa $rlen ; echo "|" ; }
 function menu_head() { echo $line_feed ;   menu_line "$@" ; echo $line_feed ; }
@@ -116,7 +120,7 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
             opensuse*)
                 os_type="$ID"
                 pac_cmd="zypper"
-                pac_cmd_ins="$pac_cmd install -y"
+                pac_cmd_ins="$pac_cmd install "
                 ;;
             ubuntu|debian)
                 os_type="$ID"
@@ -160,7 +164,8 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
 
 function check_basic() { # 基础依赖命令检测与安装
     which curl >/dev/null || sudo $pac_cmd_ins curl     # 检测 curl 命令
-    which git >/dev/null || sudo $pac_cmd_ins git       # 检测 git 命令
+    which git >/dev/null  || sudo $pac_cmd_ins git      # 检测 git 命令
+    which chsh >/dev/null || sudo $pac_cmd_ins util-linux-user   # 检测 chsh 命令(fedora)
 }
 ############ 公用模块 #############################################
 
@@ -242,7 +247,7 @@ function service_enable_start() {
 function install_anaconda() {
     loginfo "正在执行 install_anaconda 开始下载安装Anaconda3环境."
     prompt "开始安装 Anaconda3" || return 1
-    which anaconda >/dev/null 2>&1 && loginfo "Anaconda3已经安装过了!" && return 1
+    conda -V && loginfo "Anaconda3已经安装过了!" && return 1
     tmp_file=/tmp/.anaconda.html
     ${curl_cmd} -o $tmp_file -sSL https://repo.anaconda.com/archive/
     [[ "$?" != "0" ]]  && loginfo "你的网络有问题!无法访问Anaconda网站" && return 1
@@ -255,7 +260,10 @@ function install_anaconda() {
         echo -en "${RED}提醒：文件已经下载过了!${NC}"
     fi
     prompt "下载Anaconda3安装包(文件预计 $anaconda_size, date:$anaconda_date)"
-    [[ "$?" == "0" ]] && ${curl_cmd} -o /tmp/$anaconda_file -L https://repo.anaconda.com/archive/$anaconda_file
+    # origin url https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-x86_64.sh
+    dn_url="https://mirrors.tuna.tsinghua.edu.cn/anaconda/archive/$anaconda_file"
+    [[ "$?" == "0" ]] && ${curl_cmd} -o /tmp/$anaconda_file -L $dn_url
+    [[ "$?" != "0" ]] && echo "下载 Anaconda3 安装包失败!稍后再试试" && return 2
 
     default_python_install_path="$HOME/anaconda3"       # Python3 默认安装路径
     prompt "开始安装 Anaconda3...(默认安装位置为： ${default_python_install_path})"
@@ -288,6 +296,7 @@ function install_ohmyzsh() {
     loginfo "正在执行 install_ohmyzsh"
     prompt "开始安装 ohmyzsh" || return 1
     [[ -d "$HOME/.oh-my-zsh" ]] && loginfo "已经安装过 ohmyzsh 环境了" && return 0
+    which zsh || sudo $pac_cmd_ins zsh
     sh -c "RUNZSH=no $(${curl_cmd} -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     [[ "$?" = "0" ]]  || (redr_line "安装ohmyzsh失败了!! 看看报错信息! 稍后重新安装试试!"  && return 1)
 
@@ -571,103 +580,19 @@ function config_desktop_theme(){
     esac
 }
 
-function compile_i3wm() {
-    prompt "开始源码编译安装最新版 i3wm(需要安装依赖包和编译工具等)" || return 1
-    loginfo "开始编译 i3"
-    case "$os_type" in
-        fedora|cenos)
-            sudo $pac_cmd_ins libxcb-devel xcb-util-keysyms-devel xcb-util-devel \
-            xcb-util-wm-devel xcb-util-xrm-devel yajl-devel libXrandr-devel \
-            startup-notification-devel libev-devel xcb-util-cursor-devel \
-            libXinerama-devel libxkbcommon-devel libxkbcommon-x11-devel pcre-devel \
-            pango-devel git gcc automake meson ninja-build
-            ;;
-        ubuntu)
-            sudo $pac_cmd_ins libxcb1-dev libxcb-keysyms1-dev libpango1.0-dev \
-            libxcb-util0-dev libxcb-icccm4-dev libyajl-dev \
-            libstartup-notification0-dev libxcb-randr0-dev \
-            libev-dev libxcb-cursor-dev libxcb-xinerama0-dev \
-            libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev \
-            autoconf libxcb-xrm0 libxcb-xrm-dev automake libxcb-shape0-dev meson ninja-build
-            ;;
-        debian)
-            sudo $pac_cmd_ins dh-autoreconf libxcb-keysyms1-dev libpango1.0-dev libxcb-util0-dev \
-            xcb libxcb1-dev libxcb-icccm4-dev libyajl-dev libev-dev libxcb-xkb-dev libxcb-cursor-dev \
-            libxkbcommon-dev libxcb-xinerama0-dev libxkbcommon-x11-dev libstartup-notification0-dev \
-            libxcb-randr0-dev libxcb-xrm0 libxcb-xrm-dev libxcb-shape0 \
-            libxcb-shape0-dev meson ninja-build
-            ;;
-        *)
-            loginfo "不支持此系统[$os_type]"
-            return 1
-        ;;
-    esac
-
-    tmp_path="/tmp/i3"
-    git clone https://github.com/i3/i3.git $tmp_path
-    cd $tmp_path && mkdir build && cd build && meson ../ && ninja  && sudo ninja install
-    [[ "$?" != "0" ]] && loginfo "编译出现错误" && return 1
-    loginfo "完成 编译安装 i3wm"
-}
-function install_i3wm() {
-    loginfo "开始执行 install_i3wm"
-    which i3 && loginfo "已经安装过 i3wm: `i3 -v`" && return 0
-    # 先尝试安装预编译包
-    case "$os_type" in
-        centos|fedora)
-            sudo $pac_cmd_ins i3 i3-ipc i3status i3lock dmenu terminator --exclude=rxvt-unicode
-            ;;
-        manjaro)
-            sudo $pac_cmd_ins i3 i3-lock i3status
-            ;;
-        *)
-            compile_i3wm
-            ;;
-    esac
-    loginfo "成功执行 install_i3wm"
-}
 function config_i3wm() {
     #配置参考: https://i3wm.org/docs/userguide.html
     loginfo "开始执行 config_i3wm"
-    which i3
-    [[ "$?" != "0" ]] && loginfo "您没安装过 i3wm" && return 0
-    sudo $pac_cmd_ins feh iw lm-sensors xautolock lxpolkit picom dunst
-    loginfo "安装 Powerline Font"
-    tmp_path=/tmp/fonts
-    git clone https://github.com/powerline/fonts.git --depth=1 $tmp_path
-    cd $tmp_path && ./install.sh && cd - && rm -rf $tmp_path
-    loginfo "生成默认的配置 ~/.i3/config"
-    mkdir ~/.i3
-    ${curl_cmd} -o ~/.i3/config -L https://raw.githubusercontent.com/dikiaap/dotfiles/master/.i3/config
-    prompt "安装 polybar(底部状态栏) " && sudo $pac_cmd_ins polybar
-    prompt "安装 i3blocks (底部状态栏)" && sudo $pac_cmd_ins i3blocks
-    prompt "克隆 i3blocks-contrib 所有脚本" && git clone https://github.com/vivien/i3blocks-contrib ~/.config/i3blocks && cd !$ && cp config.example config
-    loginfo "生成默认的 ~/.config/i3blocks/config 配置文件"
-    loginfo "i3blocks配置参考文档: https://vivien.github.io/i3blocks/"
-    prompt "安装 Rofi" && sudo $pac_cmd_ins rofi
-    if ! which rofi >/dev/null ; then #安装预编译版本失败,源码编译
-        tmp_path="/tmp/rofi"
-        git clone --recursive https://github.com/DaveDavenport/rofi.git  $tmp_path
-        [[ "$?" == "0" ]] && cd $tmp_path &&  mkdir build && cd build && make && sudo make install
-        [[ "$?" != "0" ]] && loginfo "安装 Rofi 失败!请自行检查错误原因再重新尝试执行 : cd $tmp_path &&  mkdir build && cd build && make && sudo make install"
-    else
-        loginfo "成功安装 rofi"
-    fi
-    rofi-theme-selector    # 选择主题
-
-    loginfo "安装 xfce4-terminal(支持透明度设置) , 可自选终端 alacritty"
-    sudo $pac_cmd_ins xfce4-terminal
-
-    loginfo "默认的背景图片目录: ~/.wallpapers/"
-    loginfo "完成执行 config_i3wm"
-
+    which i3config >/dev/null 2>&1 || curl -L -o /tmp/i3config https://raw.githubusercontent.com/switchToLinux/dotfiles/main/i3config
+    chmod +x /tmp/i3config && sudo mv ./i3config /usr/local/bin
+    menu_head "开始使用 i3config 工具配置 i3wm环境"
+    i3config
 }
 function show_menu_desktop() { # 显示子菜单
     menu_head "配置选项菜单"
     menu_item 1 安装桌面主题
     menu_item 2 桌面主题切换
-    menu_item 3 安装i3wm-源码编译
-    menu_item 4 配置i3wm-基础配置
+    menu_item 3 配置i3wm
     menu_tail
     menu_item q 返回上级菜单
     menu_tail
@@ -680,8 +605,7 @@ function do_desktop_all() {
         case "$str_answer" in
             1) config_desktop_theme ;;  # 桌面主题配置
             2) kde_theme_switch     ;;
-            3) install_i3wm         ;;
-            4) config_i3wm          ;;
+            3) config_i3wm          ;;
 
             q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
@@ -864,6 +788,9 @@ function config_user() {  # 添加管理员用户
     && echo "`echo_green 恭喜您` 已经添加公钥成功!"
     loginfo "成功执行 config_user"
 }
+function config_sudo_nopass() { # 为当前用户配置使用 sudo时不需要输入密码
+    grep "NOPASSWD" /etc/sudoers.d/$USER >/dev/null 2>&1 || sudo sh -c "echo '$USER ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/$USER"
+}
 function config_machine_id() {  # 生成 machine_id 唯一信息(从模板克隆主机时会有相同id情况，导致网络分配识别等问题)
     loginfo "正在执行 config_machine_id"
     prompt "确定重新生成 machine_id(`echo_redr 会影响购买激活的软件`)" || return 1
@@ -907,6 +834,7 @@ function show_menu_config() { # 显示 config 子菜单
     menu_item 5 生成hostid
     menu_item 6 生成machineid
     menu_item 7 配置PowerlineFonts
+    menu_item 8 配置sudo无密码确认
     menu_tail
     menu_item q 返回上级菜单
     menu_tail
@@ -924,7 +852,8 @@ function do_config_all() { # 配置菜单选择
             5) config_hostid        ;;
             6) config_machine_id    ;;
             7) config_powerline_fonts ;;
-            q|"") return 0             ;;  # 返回上级菜单
+            8) config_sudo_nopass   ;;
+            q|"") return 0          ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
     done

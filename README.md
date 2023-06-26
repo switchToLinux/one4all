@@ -9,6 +9,16 @@
 
 以后的Linux上只需要一个脚本工具搞定所有安装工作，具体的细节被封装起来自动化完成，不再需要查找安装介绍和命令的复制粘贴（导致发生问题的关键）。
 
+## 如何使用
+
+```bash
+curl -o one https://raw.githubusercontent.com/switchToLinux/one4all/main/scripts/one4all.sh
+wget -O one https://raw.githubusercontent.com/switchToLinux/one4all/main/scripts/one4all.sh
+chmod +x one
+sudo mv one /usr/local/bin/
+
+one
+```
 ## 可以做什么
 
 - 安装基础命令工具，菜单选择就可以完成，放弃了敲命令的愉悦感吧。
