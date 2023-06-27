@@ -59,9 +59,19 @@ item_line_count=2   # 每行显示菜单数量
 ILEN=30   # 单个选项长度
 MLEN=$((${ILEN} * ${item_line_count}))   # 单行最大长度
 
-# 指定 TERM ，避免对齐问题(已知某些rxvt-unicode终端版本存在对齐问题)
-export TERM=xterm
-export COLORTERM=truecolor
+#### 检测当前终端支持色彩
+function check_term() {
+	# 指定 TERM ，避免对齐问题(已知某些rxvt-unicode终端版本存在对齐问题)
+    if [[ "$TERM" == *"256color"* ]] ; then
+        echo "支持 256color 修改 TERM信息"
+    else
+        export TERM=xterm
+        export COLORTERM=truecolor
+    fi
+    echo "当前终端类型: $TERM"
+    echo "当前终端色彩: $COLORTERM ,但实际终端支持色彩: `tput colors`"
+	echo "提示: 8bit 仅支持8种色彩, truecolor/24bit 支持更多色彩"
+}
 
 function menu_line() { let rlen="$item_line_count * $ILEN + 1" ; echo -en "|$TC $@ $NC" ; tput hpa $rlen ; echo "|" ; }
 function menu_head() { echo $line_feed ;   menu_line "$@" ; echo $line_feed ; }
@@ -1243,6 +1253,7 @@ function start_main(){
 }
 
 ####### Main process #################################
+check_term
 menu_head "$WELCOME"
 check_sys       # 检查系统信息
 check_basic     # 基础依赖命令检测与安装
