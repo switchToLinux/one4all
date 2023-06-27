@@ -298,7 +298,7 @@ function install_ohmyzsh() {
     [[ -d "$HOME/.oh-my-zsh" ]] && loginfo "已经安装过 ohmyzsh 环境了" && return 0
     which zsh || sudo $pac_cmd_ins zsh
     sh -c "RUNZSH=no $(${curl_cmd} -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-    [[ "$?" = "0" ]]  || (redr_line "安装ohmyzsh失败了!! 看看报错信息! 稍后重新安装试试!"  && return 1)
+    [[ "$?" != "0" ]] && redr_line "安装ohmyzsh失败了!! 看看报错信息! 稍后重新安装试试!"  && return 1
 
     loginfo "开始安装Powerline字体"
     # clone
@@ -338,7 +338,7 @@ function install_frp() {
     common_download_github_latest fatedier frp $tmp_path linux_amd64
     [[ "$?" != "0" ]] && logerr "下载 frp 预编译可执行程序失败! 安装 frp 失败." && return 1
     sudo cp $tmp_path/frp? /usr/local/bin/ && sudo mkdir /etc/frp && sudo cp $tmp_path/frp*.ini /etc/frp/
-    frps -h || ( logerr "安装没成功， frps 命令执行失败." && return 1 )
+    ! which frps >/dev/null 2>&1 && logerr "安装没成功， frps 命令执行失败." && return 1
     rm -rf $tmp_path
     loginfo "配置提醒: 参考配置说明，安全考虑，请在配置中加入 token 参数更安全"
     loginfo "成功执行 install_frp"
@@ -479,7 +479,7 @@ function install_appimagelauncher() {
         centos|opensuse*)
             # rpm based
             tmp_path="/tmp/appimage"
-            common_download_github_latest TheAssassin AppImageLauncher $tmp_path "x86_64.rpm"  || ( logerr "下载失败啦!" && return 1 )
+            ! common_download_github_latest TheAssassin AppImageLauncher $tmp_path "x86_64.rpm"  && logerr "下载失败啦!" && return 1
             sudo $pac_cmd_ins $tmp_path/appimagelauncher*x86_64.rpm
             ;;
         manjaro|arch*)  sudo ${pac_cmd_ins} appimagelauncher  ;;
@@ -899,7 +899,7 @@ function download_nvidia_driver() {
     if [ -f "$tmp_file" ] ; then
         echo -e "${RED}提醒： ${tmp_file} 文件已经下载过了!${NC}"
     fi
-    prompt "下载Nvidia驱动安装包(文件大小: $file_size )" && ( ! ${curl_cmd} -o $tmp_file -SL $file_url && logerr "下载Nvidia驱动失败! 检查网络后再试试吧" && return 2)
+    prompt "下载Nvidia驱动安装包(文件大小: $file_size )" && ! ${curl_cmd} -o $tmp_file -SL $file_url && logerr "下载Nvidia驱动失败! 检查网络后再试试吧" && return 2
 
     loginfo "Nvidia驱动保存位置: $tmp_file ."
     menu_head "${RED}提示: 驱动安装方法:${NC}"
@@ -1027,7 +1027,7 @@ function install_elasticsearch() {
 
     read -p "请输入安装目录(默认安装位置：${install_path}):" str_path
     [[ "$str_path" != "" ]] || install_path=$str_path
-    [[ -d "$install_path" ]] || mkdir $install_path || ( loginfo "目录创建失败!" && return 1 )
+    [[ ! -d "$install_path" ]] && ! mkdir $install_path && loginfo "目录创建失败!" && return 1
     es_path="${install_path}/elasticsearch-8.7.1/"
     [[ -d "$es_path" ]] && loginfo "已经安装过了!" && return 1
 
@@ -1035,11 +1035,12 @@ function install_elasticsearch() {
     filename="`basename $es_url`"
     curl -C - -o ${tmp_dir}/$filename ${es_url}
     filesha512="`basename $es_sha512`"
-    curl -o ${tmp_dir}/${filesha512} ${es_sha512}
-    shasum -a 512 -c ${filesha512} || ( loginfo " sha512 签名验证失败" && return 1 )
+    curl -o ${tmp_dir}/${filesha512} ${es_sha512} && shasum -a 512 -c ${filesha512}
+    [[ "$?" != "0" ]] && loginfo " sha512 签名验证失败" && return 1
     
     tar axvf ${tmp_dir}/${filename} -C $install_path  &&  loginfo "解压缩 $filename 文件到 $install_path 目录成功"
-    cd $es_path || ( echo "成功失败! 安装目录: $es_path" && return 1 )
+    cd $es_path
+    [[ "$?" != "0" ]] && echo "安装失败! 安装目录: $es_path" && return 1
     loginfo "成功安装目录: $es_path"
     loginfo "使用前请设置 环境变量(添加到 ~/.bashrc 文件): "
     loginfo " export ES_HOME=$es_path "
@@ -1076,18 +1077,19 @@ function install_kibana() {
         read -p "请输入安装目录:" install_path
     fi
     es_path="${install_path}/kibana-8.7.1/"
-    [[ -d "$install_path" ]] || mkdir $install_path || ( loginfo "目录创建失败!" && return 1 )
+    [[ ! -d "$install_path" ]] && ! mkdir $install_path && loginfo "目录创建失败!" && return 1
     [[ -d "$es_path" ]] && loginfo "已经安装过了!" && return 1
 
     tmp_dir="/tmp"
     filename="`basename $es_url`"
     curl -C - -o ${tmp_dir}/$filename ${es_url}
     filesha512="`basename $es_sha512`"
-    curl -o ${tmp_dir}/${filesha512} ${es_sha512}
-    shasum -a 512 -c ${filesha512} || ( loginfo " sha512 签名验证失败" && return 1 )
+    curl -o ${tmp_dir}/${filesha512} ${es_sha512} && shasum -a 512 -c ${filesha512}
+    [[ "$?" != "0" ]] && loginfo " sha512 签名验证失败" && return 1
     
     tar axvf ${tmp_dir}/${filename} -C $install_path  &&  loginfo "解压缩 $filename 文件到 $install_path 目录成功"
-    cd $es_path || ( echo "成功失败! 安装目录: $es_path" && return 1 )
+    cd $es_path
+    [[ "$?" != "0" ]] && echo "安装失败! 安装目录: $es_path" && return 1
     loginfo "成功安装目录: $es_path"
     loginfo "使用前请设置 环境变量(添加到 ~/.bashrc 文件): "
     loginfo " export KIBANA_HOME=$es_path "
