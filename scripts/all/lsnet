@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+# filename: lsnet
+# 检查网络信息快捷脚本工具
+
+function net_status() {
+    netstat -n | awk '/^tcp/ {++S[$NF]} END {for(a in S) print a, S[a]}'
+}
+
+function usage() {
+    echo "Usage:"
+    echo "  `basename $0` <n|net_status>    检查网络连接状态信息"
+    echo
+}
+
+action="$1"
+
+case "$action" in
+    net_status|n)   net_status          ;;
+    *)              usage               ;;
+esac
+

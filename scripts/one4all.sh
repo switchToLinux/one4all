@@ -306,7 +306,7 @@ function install_ohmyzsh() {
     loginfo "正在执行 install_ohmyzsh"
     prompt "开始安装 ohmyzsh" || return 1
     [[ -d "$HOME/.oh-my-zsh" ]] && loginfo "已经安装过 ohmyzsh 环境了" && return 0
-    which zsh || sudo $pac_cmd_ins zsh
+    ! which zsh && sudo $pac_cmd_ins zsh
     sh -c "RUNZSH=no $(${curl_cmd} -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     [[ "$?" != "0" ]] && redr_line "安装ohmyzsh失败了!! 看看报错信息! 稍后重新安装试试!"  && return 1
 
@@ -764,24 +764,27 @@ function config_user() {  # 添加管理员用户
 
     if [ "$user_pass" = "" ] ; then
         stty -echo
-        read -p "`echo_green 输入 $user_name 用户密码:`" user_pass
+        read -p "请输入 $user_name 用户密码:" user_pass
         echo
-        read -p "`red 再次输入$user_name用户密码`(二次确认):" user_2pass
+        read -p "再次输入 $user_name 用户密码(二次确认):" user_2pass
+        echo
         stty echo
         [[ "$user_pass" = "" || "${user_2pass}" = "" ]] && echo "您没有输入的用户密码!" && exit 2
         [[ "$user_pass" != "${user_2pass}" ]] && echo "两次输入密码不一致!" && exit 3
     fi
 
     default_shell="/usr/bin/zsh"
-    [[ ! -f "$default_shell" ]] && default_shell="/bin/bash"  # 没有zsh就使用 bash
+    [[ ! -x "$default_shell" ]] && default_shell="/bin/bash"  # 没有zsh就使用 bash
     sudo useradd $user_name --home-dir /home/$user_name -c "add by one4all tool" -s $default_shell -p "$user_pass" -g "users"
+    sudo mkdir -p /home/$user_name
+    sudo chown -R ${user_name}.users /home/$user_name
     #修改用户权限,使用sudo不用输入密码
     read -p "使用sudo命令时是否希望输入密码?(y/n,默认n)" str_answer
     if [ "$str_answer" = "y" -o "$str_answer" = "Y" ] ; then
         echo "您选择了使用sudo时需要 `red 输入密码`(操作更安全)"
     else
         echo "一看您跟我一样，就是个偷懒的人!选择使用sudo时`echo_green 不输入密码`."
-        sudo sh -c "echo '$user_name ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers"
+        sudo sh -c "echo '$user_name ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/$user_name"
     fi
 
     read -p "是否为 `red $user_name` 用户设置SSH免密码登录?(y/n,默认n)" str_answer
