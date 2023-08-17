@@ -13,12 +13,12 @@
 
 ONECFG=~/.config/one4all
 # 导入基础模块 #
-# 检测 ${ONECFG}/scripts/all/prompts_functions.sh 是否存在,不存在则git下载
-if [[ -f ${ONECFG}/scripts/all/prompts_functions.sh ]] ; then
-    source ${ONECFG}/scripts/all/prompts_functions.sh
+# 检测 ${ONECFG}/scripts/all/prompt_functions.sh 是否存在,不存在则git下载
+if [[ -f ${ONECFG}/scripts/all/prompt_functions.sh ]] ; then
+    source ${ONECFG}/scripts/all/prompt_functions.sh
 else 
     git clone https://github.com/switchToLinux/one4all.git ${ONECFG}
-    source ${ONECFG}/scripts/all/prompts_functions.sh
+    source ${ONECFG}/scripts/all/prompt_functions.sh
 fi
 ############# 安装工具部分 #########################################
 

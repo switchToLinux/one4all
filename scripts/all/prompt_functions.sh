@@ -15,7 +15,7 @@
 #
 
 # 检测是否已经导入过 #
-command -v check_term && echo "已经导入过 [$0]!" && return 0
+command -v check_term >/dev/null 2>&1 && return 0
 
 #### 默认选项 #####
 default_confirm="no"    # 是否提示确认，no-提示，yes-自动选择yes
