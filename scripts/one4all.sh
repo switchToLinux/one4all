@@ -20,7 +20,7 @@ ONECFG=~/.config/one4all
 if [[ -f ${ONECFG}/scripts/all/prompts_functions.sh ]] ; then
     source ${ONECFG}/scripts/all/prompts_functions.sh
 else 
-    git clone https://github.com/switchToLinux/one4all.git ~/.config/one4wall
+    git clone https://github.com/switchToLinux/one4all.git ${ONECFG}
     source ${ONECFG}/scripts/all/prompts_functions.sh
 fi
 
