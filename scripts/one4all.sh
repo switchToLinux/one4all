@@ -173,9 +173,9 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
 }
 
 function check_basic() { # 基础依赖命令检测与安装
-    which curl >/dev/null || sudo $pac_cmd_ins curl     # 检测 curl 命令
-    which git >/dev/null  || sudo $pac_cmd_ins git      # 检测 git 命令
-    which chsh >/dev/null || sudo $pac_cmd_ins util-linux-user   # 检测 chsh 命令(fedora)
+    command -v curl >/dev/null || sudo $pac_cmd_ins curl     # 检测 curl 命令
+    command -v git >/dev/null  || sudo $pac_cmd_ins git      # 检测 git 命令
+    command -v chsh >/dev/null || sudo $pac_cmd_ins util-linux-user   # 检测 chsh 命令(fedora)
 }
 ############ 公用模块 #############################################
 
@@ -185,7 +185,7 @@ function common_install_command() {
     str_cmd="$1"   # 命令名称
     str_url="$2"   # 下载命令的地址
     loginfo "正在执行 common_install_command:参数 cmd=$1 ,url=$2"
-    which $str_cmd >/dev/null && whiter_line "$str_cmd 命令已经安装了" && return 1
+    command -v $str_cmd >/dev/null && whiter_line "$str_cmd 命令已经安装了" && return 1
     read -p "设置安装位置(默认目录:/usr/local/bin):" str_path
     [[ ! -d "$str_path" ]] && loginfo "$str_path 目录不存在, 使用默认目录 /usr/local/bin :" && str_path="/usr/local/bin"
     $str_file="$str_path/$str_cmd"
@@ -276,7 +276,8 @@ function install_anaconda() {
     [[ "$?" != "0" ]] && echo "下载 Anaconda3 安装包失败!稍后再试试" && return 2
 
     default_python_install_path="$HOME/anaconda3"       # Python3 默认安装路径
-    prompt "开始安装 Anaconda3...(默认安装位置为： ${default_python_install_path})"
+    echo "开始安装 Anaconda3..."
+    prompt "使用默认安装目录 ${default_python_install_path}:"
     if [ "$?" != "0" ] ; then
         read -p "请输入自定义安装目录:" python_install_path
     else
@@ -306,7 +307,7 @@ function install_ohmyzsh() {
     loginfo "正在执行 install_ohmyzsh"
     prompt "开始安装 ohmyzsh" || return 1
     [[ -d "$HOME/.oh-my-zsh" ]] && loginfo "已经安装过 ohmyzsh 环境了" && return 0
-    ! which zsh && sudo $pac_cmd_ins zsh
+    ! command -v zsh && sudo $pac_cmd_ins zsh
     sh -c "RUNZSH=no $(${curl_cmd} -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
     [[ "$?" != "0" ]] && redr_line "安装ohmyzsh失败了!! 看看报错信息! 稍后重新安装试试!"  && return 1
 
@@ -324,7 +325,7 @@ function install_ohmyzsh() {
 function install_tmux() {  # Terminal终端会话管理工具,类似Screen
     loginfo "正在执行 install_tmux"
     prompt "开始安装 tmux" || return 1
-    which tmux >/dev/null && ! prompt "已经安装过 tmux ，继续安装?" && return 0
+    command -v tmux >/dev/null && ! prompt "已经安装过 tmux ，继续安装?" && return 0
     # basic config with plugin
     config_data="CiPorr7nva7liY3nvIDkuLpDdHJsICsgYQojIHNldCAtZyBwcmVmaXggQy1hCiPop6PpmaRDdHJsK2Ig5LiO5YmN57yA55qE5a+55bqU5YWz57O7CiMgdW5iaW5kIEMtYgoKCiPlsIZyIOiuvue9ruS4uuWKoOi9vemFjee9ruaWh+S7tu+8jOW5tuaYvuekuiJyZWxvYWRlZCEi5L+h5oGvCmJpbmQgciBzb3VyY2UtZmlsZSB+Ly50bXV4LmNvbmYgXDsgZGlzcGxheSAiUmVsb2FkZWQhIgoKCgojdXAKYmluZC1rZXkgayBzZWxlY3QtcGFuZSAtVQojZG93bgpiaW5kLWtleSBqIHNlbGVjdC1wYW5lIC1ECiNsZWZ0CmJpbmQta2V5IGggc2VsZWN0LXBhbmUgLUwKI3JpZ2h0CmJpbmQta2V5IGwgc2VsZWN0LXBhbmUgLVIKCiNzZWxlY3QgbGFzdCB3aW5kb3cKYmluZC1rZXkgQy1sIHNlbGVjdC13aW5kb3cgLWwKCiMjIGznmoTnjrDlnKjnmoTnu4TlkIjplK7vvJogQ3RybCt4IGzmmK/liIfmjaLpnaLmnb/vvIxDdHJsK3ggQ3RybCts5YiH5o2i56qX5Y+j77yMQ3RybCts5riF5bGPCgoj5L2/5b2T5YmNcGFuZSDmnIDlpKfljJYKIyB6b29tIHBhbmUgPC0+IHdpbmRvdwojaHR0cDovL3RtdXguc3ZuLnNvdXJjZWZvcmdlLm5ldC92aWV3dmMvdG11eC90cnVuay9leGFtcGxlcy90bXV4LXpvb20uc2gKIyBiaW5kIF56IHJ1biAidG11eC16b29tIgojIwoKI2NvcHktbW9kZSDlsIblv6vmjbfplK7orr7nva7kuLp2aSDmqKHlvI8Kc2V0dyAtZyBtb2RlLWtleXMgdmkKIyBzZXQgc2hlbGwKc2V0IC1nIGRlZmF1bHQtc2hlbGwgL2Jpbi96c2gKCgoKIyBwcmVmaXggKyBJKOWkp+WGmSkgOiDlronoo4Xmj5Lku7YKIyBwcmVmaXggKyBVKOWkp+WGmSkgOiDmm7TmlrDmj5Lku7YKIyBwcmVmaXggKyBhbHQgKyB1IDog5riF55CG5o+S5Lu2KOS4jeWcqHBsdWdpbiBsaXN05LitKQojIHByZWZpeCArIEN0cmwtcyAtIHNhdmUKIyBwcmVmaXggKyBDdHJsLXIgLSByZXN0b3JlCgojIOS8muivneeuoeeQhuaPkuS7tgoKc2V0IC1nIEBwbHVnaW4gJ3RtdXgtcGx1Z2lucy90cG0nCnNldCAtZyBAcGx1Z2luICd0bXV4LXBsdWdpbnMvdG11eC1yZXN1cnJlY3QnCnNldCAtZyBAcGx1Z2luICd0bXV4LXBsdWdpbnMvdG11eC1jb250aW51dW0nCgpzZXQgLWcgQGNvbnRpbnV1bS1zYXZlLWludGVydmFsICcxNScKc2V0IC1nIEBjb250aW51dW0tcmVzdG9yZSAnb24nCnNldCAtZyBAcmVzdXJyZWN0LWNhcHR1cmUtcGFuZS1jb250ZW50cyAnb24nCiMKIyBPdGhlciBjb25maWcgLi4uCgpydW4gLWIgJ34vLnRtdXgvcGx1Z2lucy90cG0vdHBtJwoK"
     whiter_line "开始安装tmux插件"
@@ -341,14 +342,14 @@ function install_tmux() {  # Terminal终端会话管理工具,类似Screen
 }
 function install_frp() {
     loginfo "正在执行 install_frp"
-    which frpc && loginfo "frpc 命令已经安装过了" && return 0
-    which frps && loginfo "frps 命令已经安装过了" && return 0
+    command -v frpc && loginfo "frpc 命令已经安装过了" && return 0
+    command -v frps && loginfo "frps 命令已经安装过了" && return 0
     prompt "开始安装 frp" || return 1
     tmp_path=/tmp/frp
     common_download_github_latest fatedier frp $tmp_path linux_amd64
     [[ "$?" != "0" ]] && logerr "下载 frp 预编译可执行程序失败! 安装 frp 失败." && return 1
     sudo cp $tmp_path/frp? /usr/local/bin/ && sudo mkdir /etc/frp && sudo cp $tmp_path/frp*.ini /etc/frp/
-    ! which frps >/dev/null 2>&1 && logerr "安装没成功， frps 命令执行失败." && return 1
+    ! command -v frps >/dev/null 2>&1 && logerr "安装没成功， frps 命令执行失败." && return 1
     rm -rf $tmp_path
     loginfo "配置提醒: 参考配置说明，安全考虑，请在配置中加入 token 参数更安全"
     loginfo "成功执行 install_frp"
@@ -390,7 +391,7 @@ function install_vim() {
 }
 function install_yq() {
     loginfo "正在执行 install_yq"
-    which yq && loginfo "已经安装过 yq 工具了!" && return 0
+    command -v yq && loginfo "已经安装过 yq 工具了!" && return 0
     prompt "开始安装 yq" || return 1
     dn_url="https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
     tmp_file="/tmp/yq"
@@ -401,7 +402,7 @@ function install_yq() {
 }
 function install_jq() {
     loginfo "正在执行 install_jq"
-    which jq && loginfo "已经安装过 jq 工具了!" && return 0
+    command -v jq && loginfo "已经安装过 jq 工具了!" && return 0
     prompt "开始安装 jq" || return 1
     dn_url="https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64"
     tmp_file="/tmp/jq"
@@ -567,8 +568,8 @@ function config_kde_theme() {
     loginfo "安装GRUB2主题-[grub2-themes]"
     git clone https://github.com/vinceliuice/grub2-themes.git  $tmp_path/grub2-themes && cd $tmp_path/grub2-themes && sudo ./install.sh -b -t whitesur && cd -
 
-    ! which lookandfeeltool >/dev/null && sudo $pac_cmd_ins plasma-workspace plasma5-workspace
-    ! which lookandfeeltool >/dev/null && logerr "lookandfeeltool 安装失败,请手动设置主题" && return 1
+    ! command -v lookandfeeltool >/dev/null && sudo $pac_cmd_ins plasma-workspace plasma5-workspace
+    ! command -v lookandfeeltool >/dev/null && logerr "lookandfeeltool 安装失败,请手动设置主题" && return 1
     
     kde_theme_switch
     loginfo "成功执行 config_kde_theme"
@@ -593,7 +594,7 @@ function config_desktop_theme(){
 function config_i3wm() {
     #配置参考: https://i3wm.org/docs/userguide.html
     loginfo "开始执行 config_i3wm"
-    which i3config >/dev/null 2>&1 || curl -L -o /tmp/i3config https://raw.githubusercontent.com/switchToLinux/dotfiles/main/i3config
+    command -v i3config >/dev/null 2>&1 || curl -L -o /tmp/i3config https://raw.githubusercontent.com/switchToLinux/dotfiles/main/i3config
     chmod +x /tmp/i3config && sudo mv ./i3config /usr/local/bin
     menu_head "开始使用 i3config 工具配置 i3wm环境"
     i3config
@@ -633,7 +634,7 @@ function config_langpack() {  # 中文语言支持 zh_CN.UTF-8
     if [ "$?" != "0" ] ; then
         case "$os_type" in
             debian|ubuntu*)
-                which locale-gen >/dev/null
+                command -v locale-gen >/dev/null
                 if [ "$?" = "0" ] ; then
                     sudo locale-gen $local_charset
                 else
@@ -725,7 +726,6 @@ function config_source() { # 配置软件源为国内源(清华大学源速度�
             # based on debian 12 bookworm
             source_data="IyDpu5jorqTms6jph4rkuobmupDnoIHplZzlg4/ku6Xmj5Dpq5ggYXB0IHVwZGF0ZSDpgJ/luqbvvIzlpoLmnInpnIDopoHlj6/oh6rooYzlj5bmtojms6jph4oKZGViIGh0dHBzOi8vbWlycm9ycy50dW5hLnRzaW5naHVhLmVkdS5jbi9kZWJpYW4vIGJvb2t3b3JtIG1haW4gY29udHJpYiBub24tZnJlZSBub24tZnJlZS1maXJtd2FyZQojIGRlYi1zcmMgaHR0cHM6Ly9taXJyb3JzLnR1bmEudHNpbmdodWEuZWR1LmNuL2RlYmlhbi8gYm9va3dvcm0gbWFpbiBjb250cmliIG5vbi1mcmVlIG5vbi1mcmVlLWZpcm13YXJlCgpkZWIgaHR0cHM6Ly9taXJyb3JzLnR1bmEudHNpbmdodWEuZWR1LmNuL2RlYmlhbi8gYm9va3dvcm0tdXBkYXRlcyBtYWluIGNvbnRyaWIgbm9uLWZyZWUgbm9uLWZyZWUtZmlybXdhcmUKIyBkZWItc3JjIGh0dHBzOi8vbWlycm9ycy50dW5hLnRzaW5naHVhLmVkdS5jbi9kZWJpYW4vIGJvb2t3b3JtLXVwZGF0ZXMgbWFpbiBjb250cmliIG5vbi1mcmVlIG5vbi1mcmVlLWZpcm13YXJlCgpkZWIgaHR0cHM6Ly9taXJyb3JzLnR1bmEudHNpbmdodWEuZWR1LmNuL2RlYmlhbi8gYm9va3dvcm0tYmFja3BvcnRzIG1haW4gY29udHJpYiBub24tZnJlZSBub24tZnJlZS1maXJtd2FyZQojIGRlYi1zcmMgaHR0cHM6Ly9taXJyb3JzLnR1bmEudHNpbmdodWEuZWR1LmNuL2RlYmlhbi8gYm9va3dvcm0tYmFja3BvcnRzIG1haW4gY29udHJpYiBub24tZnJlZSBub24tZnJlZS1maXJtd2FyZQoKIyBkZWIgaHR0cHM6Ly9taXJyb3JzLnR1bmEudHNpbmdodWEuZWR1LmNuL2RlYmlhbi1zZWN1cml0eSBib29rd29ybS1zZWN1cml0eSBtYWluIGNvbnRyaWIgbm9uLWZyZWUgbm9uLWZyZWUtZmlybXdhcmUKIyAjIGRlYi1zcmMgaHR0cHM6Ly9taXJyb3JzLnR1bmEudHNpbmdodWEuZWR1LmNuL2RlYmlhbi1zZWN1cml0eSBib29rd29ybS1zZWN1cml0eSBtYWluIGNvbnRyaWIgbm9uLWZyZWUgbm9uLWZyZWUtZmlybXdhcmUKCmRlYiBodHRwczovL3NlY3VyaXR5LmRlYmlhbi5vcmcvZGViaWFuLXNlY3VyaXR5IGJvb2t3b3JtLXNlY3VyaXR5IG1haW4gY29udHJpYiBub24tZnJlZSBub24tZnJlZS1maXJtd2FyZQojIGRlYi1zcmMgaHR0cHM6Ly9zZWN1cml0eS5kZWJpYW4ub3JnL2RlYmlhbi1zZWN1cml0eSBib29rd29ybS1zZWN1cml0eSBtYWluIGNvbnRyaWIgbm9uLWZyZWUgbm9uLWZyZWUtZmlybXdhcmUKCg=="
             source_file="/etc/apt/sources.list"
-            code_name=`awk -`VERSION_CODENAME
             if [ -f "${source_file}.`date +%Y%m%d`" ] ; then
                 echo "${source_file}.`date +%Y%m%d` 文件已经存在!"
             else
@@ -876,9 +876,9 @@ function do_config_all() { # 配置菜单选择
 function download_nvidia_driver() {
     loginfo "正在执行 download_nvidia_driver"
     prompt "开始下载 N卡驱动" || return 1
-    which jq >/dev/null || sudo $pac_cmd_ins jq
-    ! which jq >/dev/null && logerr "缺少 jq 工具!" && return 1
-    loginfo "您已经安装了 jq 命令: `which jq`"
+    command -v jq >/dev/null || sudo $pac_cmd_ins jq
+    ! command -v jq >/dev/null && logerr "缺少 jq 工具!" && return 1
+    loginfo "您已经安装了 jq 命令: `command -v jq`"
     tmp_json=/tmp/tmp.nvidia.menu.json
     # 下载链接(以 NVIDIA GeForce GTX 1660 SUPER 显卡为例,驱动兼容大部分 GeForce系列)
     dn_url='https://gfwsl.geforce.cn/services_toolkit/services/com/nvidia/services/AjaxDriverService.php?func=DriverManualLookup&psid=112&pfid=910&osID=12&languageCode=2052&beta=null&isWHQL=0&dltype=-1&dch=0&upCRD=null&qnf=0&sort1=0&numberOfResults=10'
@@ -992,13 +992,13 @@ function install_sdwebui() {
     menu_tail
     menu_head "运行环境检查结果:"
     menu_iteml "Python3" `python3 --version`
-    if which nvidia-smi > /dev/null; then
+    if command -v nvidia-smi > /dev/null; then
         menu_iteml "Nvidia型号" `nvidia-smi -q | awk -F: '/Product Name/{print $2 }'`
         menu_iteml "Nvidia显存" `nvidia-smi -q | grep -A4 'FB Memory Usage' | awk '/Total/{print $3 }'` "MB"
     fi
     menu_tail
     id_like=`awk -F= '/^ID_LIKE/{ print $2 }' /etc/os-release|sed 's/\"//g'`
-    which python3 >/dev/null || sudo ${pac_cmd_ins} python3 wget git && loginfo "自动安装python3环境完成." && [[ "$id_like" = "debian" ]] &&  sudo ${pac_cmd_ins} python3-venv
+    command -v python3 >/dev/null || sudo ${pac_cmd_ins} python3 wget git && loginfo "自动安装python3环境完成." && [[ "$id_like" = "debian" ]] &&  sudo ${pac_cmd_ins} python3-venv
     
     pyver="`python3 --version| cut -d. -f2`"
     [[ "$pyver" -lt "10" ]] && logerr "当前Python3版本过低,建议使用Python 3.10以上" && return 1
@@ -1113,7 +1113,7 @@ function install_kibana() {
 function install_nodejs() {
     nodejs_type="${1:-LTS}"   # nodejs 类型 LTS 或 latest最新版
     loginfo "正在执行 install_nodejs"
-    which node && loginfo "已经安装了 nodejs 环境 :`node -v`" && return 0
+    command -v node && loginfo "已经安装了 nodejs 环境 :`node -v`" && return 0
     prompt "开始安装 nodejs环境" || return 1
     read -p "设置安装位置(比如 /devel 目录,自动创建子目录nodejs):" str_outpath
     [[ -d "$str_outpath" ]]  || return 2
@@ -1147,7 +1147,7 @@ function install_nodejs() {
 
 function install_golang() {
     loginfo "开始执行 install_golang"
-    which go && loginfo "已经安装了 go语言开发环境 :`go version`" && return 0
+    command -v go && loginfo "已经安装了 go语言开发环境 :`go version`" && return 0
     prompt "开始安装 go语言开发环境" || return 1
     read -p "设置安装位置(比如 /devel 目录,自动创建子目录go):" str_outpath
     [[ -d "$str_outpath" ]]  || return 2
