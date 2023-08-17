@@ -15,12 +15,13 @@
 #
 
 ONECFG=~/.config/one4all
+REPO_URL=https://github.com/switchToLinux/one4all
 # 导入基础模块 #
 # 检测 ${ONECFG}/scripts/all/prompt_functions.sh 是否存在,不存在则git下载
 if [[ -f ${ONECFG}/scripts/all/prompt_functions.sh ]] ; then
     source ${ONECFG}/scripts/all/prompt_functions.sh
 else 
-    git clone https://github.com/switchToLinux/one4all.git ${ONECFG}
+    git clone ${REPO_URL} ${ONECFG}
     source ${ONECFG}/scripts/all/prompts_functions.sh
 fi
 
@@ -29,6 +30,51 @@ for fn in `ls ${ONECFG}/scripts/all/main_*.sh` ; do
     source ${fn}
 done
 
+function update_repo() {
+    [[ ! -d ${ONECFG} ]] && echo "出现错误! ${ONECFG} 目录不能存在！" && return 0
+    [[ -d ${ONECFG} ]] && cd ${ONECFG} && git pull && return 0
+}
+
+# 主菜单显示 #
+function show_menu_main() {
+    menu_head "安装选项菜单"
+    menu_item 1 安装命令工具
+    menu_item 2 安装图形界面工具
+    menu_item 3 安装编程开发环境
+    menu_tail
+    menu_item c 配置终端环境
+    menu_item d 配置桌面主题
+    menu_item g 安装显卡相关
+    menu_tail
+    menu_item u "${TC}U${NC}pdate更新"
+    menu_item q 退出
+    menu_tail
+}
+
+function start_main(){
+    while true
+    do
+        show_menu_main
+        read -r -n 1 -e  -p "`echo_greenr 请选择:`${PMT} " str_answer
+        case "$str_answer" in
+            1) do_install_all   ;;  # 终端命令安装
+            2) do_install_gui   ;;  # 图形工具相关安装
+            3) do_develop_all   ;;  # 开发编程相关安装配置
+
+            c) do_config_all    ;;  # 终端环境配置
+            d) do_desktop_all   ;;  # 桌面环境配置工作(主题/图标等)
+            g) do_graphics_all  ;;  # 显卡相关安装配置
+
+            u)
+                update_repo
+                loginfo "$0 命令更新完毕! ${BG}退出后请重新执行此命令${NC}."
+                exit 0
+            ;;
+            q|"") return 0         ;;  # 返回上级菜单
+            *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
+        esac
+    done
+}
 
 ####### Main process #################################
 check_term
