@@ -62,19 +62,6 @@ item_line_count=2   # 每行显示菜单数量
 ILEN=30   # 单个选项长度
 MLEN=$((${ILEN} * ${item_line_count}))   # 单行最大长度
 
-#### 检测当前终端支持色彩
-function check_term() {
-	# 指定 TERM ，避免对齐问题(已知某些rxvt-unicode终端版本存在对齐问题)
-    if [[ "$TERM" == *"256color"* ]] ; then
-        echo "支持 256color 修改 TERM信息"
-    else
-        export TERM=xterm
-        export COLORTERM=truecolor
-    fi
-    echo "当前终端类型: $TERM"
-    echo "当前终端色彩: $COLORTERM ,但实际终端支持色彩: `tput colors`"
-	echo "提示: 8bit 仅支持8种色彩, truecolor/24bit 支持更多色彩"
-}
 
 function menu_line() { let rlen="$item_line_count * $ILEN + 1" ; echo -en "|$TC $@ $NC" ; tput hpa $rlen ; echo "|" ; }
 function menu_head() { echo $line_feed ;   menu_line "$@" ; echo $line_feed ; }
@@ -101,7 +88,6 @@ WELCOME="^_^你笑起来真好看!像春天的花一样!"
 SEE_YOU="^_^出去晒晒太阳吧!多运动才更健康!"
 
 
-
 ########### 运行条件检测 ###########
 function prompt() { # 提示确认函数，如果使用 -y 参数默认为Y确认
     msg="$@"
@@ -119,67 +105,6 @@ function prompt() { # 提示确认函数，如果使用 -y 参数默认为Y确�
 # 检查是否有root权限并提示，需要root权限的命令要添加sudo
 function check_root() { [[ "`uid -u`" = "0" ]]  && ! prompt "提示:确认在root用户下或者使用sudo运行?" && exit 0 ; }
 
-function check_sys() { # 检查系统发行版信息，获取os_type/os_version/pac_cmd/pac_cmd_ins等变量
-    if [ -f /etc/os-release ] ; then
-        ID=`awk -F= '/^ID=/{print $2}' /etc/os-release|sed 's/\"//g'`
-        os_version=`awk -F= '/^VERSION_ID=/{print $2}' /etc/os-release|sed 's/\"//g'`
-        os_codename=`awk -F= '/^VERSION_CODENAME=/{print $2}' /etc/os-release|sed 's/\"//g'`
-        case "$ID" in
-            centos|fedora)  # 仅支持 centos 8 以上，但不加限制，毕竟7用户很少了
-                os_type="$ID"
-                pac_cmd="dnf"
-                pac_cmd_ins="$pac_cmd install -y"
-                ;;
-            opensuse*)
-                os_type="$ID"
-                pac_cmd="zypper"
-                pac_cmd_ins="$pac_cmd install "
-                ;;
-            ubuntu|debian)
-                os_type="$ID"
-                pac_cmd="apt-get"
-                pac_cmd_ins="$pac_cmd install -y"
-                ;;
-            manjaro|arch*)
-                os_type="$ID"
-                pac_cmd="pacman"
-                pac_cmd_ins="$pac_cmd -S --needed --noconfirm "
-                ;;
-            *)
-                os_type="unknown"
-                pac_cmd=""
-                pac_cmd_ins=""
-                ;;
-        esac
-    fi
-    case "$XDG_CURRENT_DESKTOP" in
-        KDE|GNOME|XFCE)
-            gui_type="$XDG_CURRENT_DESKTOP"
-            ;;
-        *)
-            gui_type=""
-            [[ "$$XDG_CURRENT_DESKTOP" == "" ]] && logerr "您当前会话类型为[$XDG_SESSION_TYPE] 非图形界面下运行"
-            [[ "$$XDG_CURRENT_DESKTOP" != "" ]] && loginfo "unknown desktop type: $XDG_CURRENT_DESKTOP"
-            ;;
-    esac
-    cpu_arch="`uname -m`"
-    loginfo "${BG}系统${NC}:$os_type $os_version $cpu_arch"
-    loginfo "${BG}桌面${NC}:$gui_type,${BG}包管理命令${NC}:$pac_cmd"
-    if [ -z "$pac_cmd" ] ; then
-        return 1
-    fi
-    if [ "$cpu_arch" != "x86_64" ] ; then
-        echo "invalid cpu arch:[$cpu_arch]"
-        return 2
-    fi
-    return 0
-}
-
-function check_basic() { # 基础依赖命令检测与安装
-    command -v curl >/dev/null || sudo $pac_cmd_ins curl     # 检测 curl 命令
-    command -v git >/dev/null  || sudo $pac_cmd_ins git      # 检测 git 命令
-    command -v chsh >/dev/null || sudo $pac_cmd_ins util-linux-user   # 检测 chsh 命令(fedora)
-}
 ############ 公用模块 #############################################
 
 ## 通用的下载安装命令
