@@ -244,36 +244,46 @@ function usage() {
     echo "使用方法: "
     echo "    `basename $0` [参数]   双显示器设置布局及分辨率更新脚本"
     echo
-    echo "参数:"
-    echo "  daemon  : 轮询调度检测显示器变化，快速响应新接入显示器"
+    echo "-------------------------------------------"
+    echo "输入参数:"
+    # echo "  daemon  : 轮询调度检测显示器变化，快速响应新接入显示器"
     echo "  set     : 设置显示器布局及分辨率,可选方向参数 up/left"
-    echo "  fset    : 强制设置显示器布局分辨率,效果同set,无论显示器数量是否变化都会执行。"
-    echo "  reset   : 重新设置主副屏幕布局"
+    echo "  fset    : 强制 设置显示器布局分辨率,效果同set，但会强制执行设置分辨率，而set只会在显示器数量变化(掉线、或换显示器)时才会执行。"
+    echo "  reset   : 重新设置 主副屏幕布局(接入新屏幕时用)"
+    echo "  exit   : 结束屏幕设置"
     echo
-    echo -e "说明: \e[7m设置只在第一次时需要选择主、副屏幕,之后会保存设置信息,以后不需要重复设置\e[1m"
+    echo -e "说明: \e[7m 设置只在第一次时需要选择主、副屏幕,之后会保存设置信息,以后不需要重复设置 \e[0m "
     echo
 }
 
 action="${1:-set}"
 
-case $action in
-    daemon) # 轮询查询显示器数量，响应速度比crontab 调度快
-        run_daemon      ;;
-    set)
-        set_display $2 ;;
-    fset)
-        echo 1 > $current_file
-        monitor_last_count=1
-        set_display $2 ;;
-    reset)
-        echo 1 > $current_file
-        rm -f $config_file
-        monitor_last_count=1
-        set_display $2 ;;
-    cat)
-        cat $config_file  ;;
-    help|-h)
-        usage ;;
-    *)
-        logit "invalid action: $action" ; usage ;;
-esac
+while true ; do
+    usage
+    read -p "选择:" action direction
+    [[ "$action" == "" ]] && break
+    [[ "$direction" != "up" && "$direction" != "left" ]] && direction="up"
+    case $action in
+        # daemon) # 轮询查询显示器数量，响应速度比crontab 调度快
+        #     run_daemon      ;;
+        set)
+            set_display $direction ;;
+        fset)
+            echo 1 > $current_file
+            monitor_last_count=1
+            set_display $direction ;;
+        reset)
+            echo 1 > $current_file
+            rm -f $config_file
+            monitor_last_count=1
+            set_display $direction ;;
+        cat)
+            cat $config_file  ;;
+        help|-h)
+            usage ;;
+        exit)
+            exit 0 ;;
+        *)
+            logit "invalid action: $action" ; usage ;;
+    esac
+done
