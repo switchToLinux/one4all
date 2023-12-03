@@ -13,6 +13,8 @@
 
 source $HOME/.bashrc
 
+action="${1:-set}"
+
 
 # 如果使用cron 调度执行就需要此参数
 # 对于不同DE环境的默认 XAUTHORITY 文件名称、存储位置也不同，有报错则记得修改此参数
@@ -21,8 +23,9 @@ uid=`id -u`
 xauth_dir="/run/user/$uid"
 xauth_fileprefix="xauth_"
 if [ "$XAUTHORITY" = "" ] ; then
-    export XAUTHORITY=`ls ${auth_dir}/${xauth_fileprefix}*`
-else
+    export XAUTHORITY=`ls ${xauth_dir}/${xauth_fileprefix}*`
+    [[ ! -f "$XAUTHORITY" ]] && echo "没找到 \$XAUTHORITY 文件(可能你不是在桌面环境运行的)" && exit 1
+elif [ "$action" = "daemon" ] ; then
     echo "XAUTHORITY=$XAUTHORITY"
     xtmp_dir=`dirname $XAUTHORITY`
     xtmp_file=`basename $XAUTHORITY`
@@ -256,7 +259,6 @@ function usage() {
     echo
 }
 
-action="${1:-set}"
 
 while true ; do
     usage
