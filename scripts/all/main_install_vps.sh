@@ -12,7 +12,7 @@
 
 ########## VPS相关  #########################################
 function vps_install_fwctl() {
-    sudo cp $ONECFG/server/fwctl /usr/local/bin/
+    sudo cp $ONECFG/scripts/server/fwctl /usr/local/bin/
     [[ "$?" = "0" ]] && echo "验证 fwctl 命令:" && fwctl
 }
 
