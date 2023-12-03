@@ -97,12 +97,11 @@ function check_basic() { # 基础依赖命令检测与安装
 
 # 导入基础模块 #
 # 检测 ${ONECFG}/scripts/all/prompt_functions.sh 是否存在,不存在则git下载
-if [[ -f ${ONECFG}/scripts/all/prompt_functions.sh ]] ; then
-    source ${ONECFG}/scripts/all/prompt_functions.sh
-else 
-    git clone ${REPO_URL} ${ONECFG}
-    source ${ONECFG}/scripts/all/prompts_functions.sh
+if [[ ! -f ${ONECFG}/scripts/all/prompt_functions.sh ]] ; then
+    git clone ${REPO_URL} ${ONECFG} || exit 1
 fi
+
+source ${ONECFG}/scripts/all/prompt_functions.sh
 
 # 导入全部功能模块 #
 for fn in `ls ${ONECFG}/scripts/all/main_*.sh` ; do

@@ -28,9 +28,14 @@ function install_anaconda() {
         echo -en "${RED}提醒：文件已经下载过了!${NC}"
     fi
     prompt "下载Anaconda3安装包(文件预计 $anaconda_size, date:$anaconda_date)"
-    # origin url https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-x86_64.sh
+    # origin url example https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-x86_64.sh
     dn_url="https://mirrors.tuna.tsinghua.edu.cn/anaconda/archive/$anaconda_file"
-    [[ "$?" == "0" ]] && ${curl_cmd} -o /tmp/$anaconda_file -L $dn_url
+    default_dn_url="https://repo.anaconda.com/archive/$anaconda_file"
+    
+    prompt "是否使用国内安装源(国内主机推荐选择是):"
+    [[ "$?" == "0" ]] && dn_url="$default_dn_url"
+
+    ${curl_cmd} -o /tmp/$anaconda_file -L $dn_url
     [[ "$?" != "0" ]] && echo "下载 Anaconda3 安装包失败!稍后再试试" && return 2
 
     default_python_install_path="$HOME/anaconda3"       # Python3 默认安装路径
