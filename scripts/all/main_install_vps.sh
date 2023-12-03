@@ -87,7 +87,7 @@ function do_server_all() { # 配置菜单选择
             1) vps_install_fwctl    ;;
             2) vps_update_timezone  ;;
             3) do_nginx_all         ;;
-            q) return 0             ;;  # 返回上级菜单
+            q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
     done
