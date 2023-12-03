@@ -124,6 +124,10 @@ function show_menu_main() {
     menu_item d 配置桌面主题
     menu_item g 安装显卡相关
     menu_tail
+
+    menu_item v 服务器配置
+    menu_tail
+
     menu_item u "${TC}U${NC}pdate更新"
     menu_item q 退出
     menu_tail
@@ -143,6 +147,7 @@ function start_main(){
             d) do_desktop_all   ;;  # 桌面环境配置工作(主题/图标等)
             g) do_graphics_all  ;;  # 显卡相关安装配置
 
+            v) do_server_all    ;;  # 服务器配置
             u)
                 update_repo
                 loginfo "$0 命令更新完毕! ${BG}退出后请重新执行此命令${NC}."
