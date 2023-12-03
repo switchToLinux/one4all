@@ -140,6 +140,16 @@ function read_config() {
             echo "输入了无效的副屏幕: $str_answer"
             exit 0
         fi
+        echo "设置主副屏幕布局，有效值:"
+        echo "up-左右布局"
+        echo "left-左右布局"
+        read -p "请设置 主/副 屏幕布局 up/left: " str_answer
+        if [[ "$str_answer" != "up" && "$str_answer" != "left" ]] ; then
+            echo "无效输入布局，已经为您设置为上下布局-up"
+            direction="up"
+        else
+            direction=$str_answer
+        fi
 
         set_scale
         echo "primary_screen=$primary_screen" > $config_file
