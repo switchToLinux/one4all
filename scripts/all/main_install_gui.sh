@@ -69,7 +69,7 @@ function show_menu_gui() {
     menu_item 1 达芬奇DaVinciResolve18
     menu_item 2 "Xmind(思维导图)"
     menu_item 3 "安装AppImageLauncher"
-    menu_item 4 "设置双屏幕分辨率布局-dset"
+    menu_item 4 "设置双屏分辨率-dset"
 
     menu_tail
     menu_item q 返回上级菜单
@@ -84,7 +84,7 @@ function do_install_gui() {
             1) install_davinci      ;;
             2) install_xmind        ;;
             3) install_appimagelauncher ;;
-            4) $ONECFG/dset         ;;
+            4) $ONECFG/scripts/gui/dset  ;;
             q|"") return 0          ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
