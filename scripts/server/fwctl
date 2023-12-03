@@ -1,0 +1,467 @@
+#!/usr/bin/env bash
+################################################
+### 功能: iptables防火墙管理脚本
+### 作者: Awkee
+### 
+#   链接: https://git.io/fwctl
+#   博客: https://vlike.work
+#
+# IP数据源参考链接:
+#   - 按省市级分类IP段: https://github.com/out0fmemory/qqwry.dat
+#   - 按运营商分类IP段: https://github.com/gaoyifan/china-operator-ip
+# 市级名称及编码信息: https://raw.githubusercontent.com/uiwjs/province-city-china/gh-pages/city.json
+################################################
+
+source $HOME/.bashrc
+
+# 保存ipset数据
+ipset_file=/etc/ipset_all.txt
+ipset_new=/etc/ipset_new.txt
+
+# 保存iptables规则(不同的系统默认存放路径并不同，本脚本独立保存到/etc目录)
+iptables_file=/etc/iptables_fwctl
+
+########### 文字显示 ######
+    ## 格式:\033[属性;文本色;背景色m
+    ## Attribute codes:
+    ## 00=none 01=bold 04=underscore 05=blink 07=reverse 08=concealed 
+    ## Text color codes:
+    ## 30=black 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan 37=Light gray
+    ## 90=Dark gray 91=Light red 92...97=White
+    ## Background color codes:
+    ## 40=black 41=red 42=green 43=yellow 44=blue 45=magenta 46=cyan 47=white
+
+    ## \033[0m 关闭所有属性
+    ## \033[1m 设置高亮度
+    ## \033[4m 下划线
+    ## \033[5m 闪烁
+    ## \033[7m 反显 
+    ## \033[8m 消隐 
+    ## \033[30m — \33[37m 设置前景色 
+    ## \033[40m — \33[47m 设置背景色 
+    ## \033[nA 光标上移n行 
+    ## \033[nB 光标下移n行 
+    ## \033[nC 光标右移n行 
+    ## \033[nD 光标左移n行 
+    ## \033[y;xH设置光标位置
+    ## \033[2J 清屏
+    ## \033[K 清除从光标到行尾的内容 
+    ## \033[s 保存光标位置 
+    ## \033[u 恢复光标位置 
+    ## \033[?25l 隐藏光标 
+    ## \033[?25h 显示光标
+
+
+white() {
+    printf "\033[0;97;1m $@ \033[0m"
+}
+red() {
+    printf "\033[0;31;1m $@ \033[0m"
+}
+green() {
+    printf "\033[0;32;7m $@ \033[0m"
+}
+
+gen_cn_ip() {
+    # 生成默认的全国过IP段 ipset 白名单规则
+    echo "create whitelist hash:net family inet hashsize 1024 maxelem 65536" > ${ipset_new}
+    # cn_url="https://bgp.space/china.html"
+    cn_url="https://asn.bgp.space/china.html"
+    curl ${cn_url} 2>/dev/null | awk '/^[1-9]/{ gsub("<br>",""); print "add whitelist "$0 }' >> ${ipset_new}
+}
+
+urlencode() {
+  LC_ALL=C awk -- '
+    BEGIN {
+      for (i = 1; i <= 255; i++) hex[sprintf("%c", i)] = sprintf("%%%02X", i)
+    }
+    function urlencode(s,  c,i,r,l) {
+      l = length(s)
+      for (i = 1; i <= l; i++) {
+        c = substr(s, i, 1)
+        r = r "" (c ~ /^[:\/\-._~0-9a-zA-Z]$/ ? c : hex[c])
+      }
+      return r
+    }
+    BEGIN {
+      for (i = 1; i < ARGC; i++)
+        print urlencode(ARGV[i])
+    }' "$@"
+}
+
+
+
+
+gen_city_ip() {
+    # 根据输入省份或者地市名称生成 ipset 规则
+    city_name="$1"
+    base_url="https://raw.githubusercontent.com/Awkee/china-ip-list/main"
+    iplist_url="${base_url}/ip.list"
+    tmp_file=".tmp.list"
+    curl -L ${iplist_url} 2>/dev/null | grep "$city_name" > $tmp_file
+    if [ ! -z "$tmp_file" ] ; then
+        # 找到匹配地区IP段文件
+        echo "create blacklist hash:net family inet hashsize 1024 maxelem 65536" > ${ipset_new}
+        echo "create whitelist hash:net family inet hashsize 1024 maxelem 65536" >> ${ipset_new}
+
+        read -p "输入您的网络运营商名称[联通, 电信, 移动, 铁通, 科技网, 广电, 教育网, 方正宽带](回车选择默认:全部):" str_isp
+        cat $tmp_file | while read fn
+        do
+            fname=`urlencode "${base_url}/${fn}"`
+
+            # 按运营商过滤IP段
+            echo "下载文件[${fn}]"
+            if [ "$str_isp" != "" ] ; then
+                echo "过滤ISP运营商: [$str_isp]"
+                curl -L ${fname} 2>/dev/null | grep "$str_isp" | awk '{printf("add whitelist %s\n", $1);}' >> ${ipset_new}
+            else
+                curl -L ${fname} 2>/dev/null | awk '{ printf("add whitelist %s\n", $1);}' >> ${ipset_new}
+            fi
+        done
+    else
+        read -p "没找到您输入的地区 [$city_name]! 使用国内所有IP段(Ctrl+C表示`green 取消`,回车键`green 继续`)." str_answer
+        gen_cn_ip
+    fi
+    # 保留黑名单列表
+    ipset save blacklist >> ${ipset_new}
+    echo "当前ipset条数: `wc -l ${ipset_new}`"
+
+    rm -f $tmp_file
+}
+
+change_city_ip() {
+    read -p "输入希望添加的IP段省份名称(默认:全国):" str_prov
+    if [ "$str_prov" = "" -o "$str_prov" = "全国" -o "$str_prov" = "国内" ] ; then
+        gen_cn_ip
+    else
+        # 单独省份或地市IP段
+        gen_city_ip $str_prov
+    fi
+    if [ "$?" != "0" ] ; then
+        echo "添加失败:快看看哪里执行错误了吧"
+        exit 0
+    fi
+}
+
+firewall_init() {
+    # 初始化防火墙配置规则
+    echo "您当前防火墙配置情况如下:"
+    iptables-save
+    read -p "确定初始化防火墙规则?(回车继续,Ctrl+C取消)" str_answer
+    
+    iptables -F
+    
+    echo "开始初始化ipset,添加国内IP段!"
+    change_city_ip
+    echo "初始化ipset结束!"
+
+    echo "开始创建iptables防火墙:"
+
+    echo "关闭 firewalld 服务, 使用 iptables 服务(可能您没使用)"
+    systemctl disable --now firewalld.serverce  >/dev/null 2>&1
+
+    echo "安装iptables-service服务"
+    if command -v yum >/dev/null ; then
+        yum install -y ipset iptables-services
+    elif command -v apt >/dev/null ; then
+        apt remove ufw
+        apt install -y ipset iptables iptables-persistent
+    fi
+
+    echo "配置 iptables 防火墙规则:"
+    # 允许服务器本机对外访问:允许内部向外发消息
+    iptables -I OUTPUT -j ACCEPT
+    # 接收内部地址消息
+    iptables -A INPUT -s 127.0.0.1 -j ACCEPT
+
+    # 丢弃所有黑名单列表请求数据包
+    iptables -A INPUT -m set --match-set blacklist src -p udp -j DROP
+    iptables -A INPUT -m set --match-set blacklist src -p tcp -j DROP
+
+    # 放行已建立连接的相关数据
+    iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+    # 开放端口列表示例(一次添加多个端口)
+    iptables -A INPUT -p tcp -m multiport --dports 22,443 -j ACCEPT
+    # 开放白名单可访问的端口示例
+    iptables -A INPUT -p tcp -m set --match-set whitelist src -m multiport --dports 80,443 -j ACCEPT
+
+    # 丢弃所有ICMP协议(不让ping)
+    iptables -A FORWARD -p icmp -j DROP
+    # 保底规则:丢弃所有(不需要)的请求数据
+    iptables -A INPUT -j DROP
+    
+    echo "`green 完成防火墙初始化配置`"
+    firewall_save
+}
+
+firewall_save() {
+    # 导出防火墙配置规则
+    echo "备份 ipset 列表"
+    ipset save whitelist > $ipset_file
+    ipset save blacklist >> $ipset_file
+
+    # 导出iptables规则
+    echo "备份 iptables 规则"
+    iptables-save -f ${iptables_file}
+
+    echo "================================================"
+    echo "想要修改 ipset 和 iptables 规则，可以手工修改文件:"
+    echo "ipset 规则文件: ${ipset_file}"
+    echo "iptables 规则文件: ${iptables_file}"
+    echo "================================================"
+    echo
+}
+
+firewall_restore() {
+    # 恢复防火墙配置规则
+    echo "恢复 ipset 列表"
+    ipset -! restore < $ipset_file
+
+    echo "恢复 iptables 防火墙规则"
+    iptables-restore $iptables_file
+}
+
+open_port() {
+    # 开放TCP端口(任何用户都可以访问，常用于开放HTTP/HTTPS服务)
+    port=$1
+    iptables -I INPUT -p tcp --dport ${port} -j ACCEPT
+}
+
+close_port() {
+    # 关闭TCP端口(不再允许用户访问)，针对 open_port添加规则
+    iptables -S| grep "dport ${port} "| awk '{ gsub("-A", "-D"); print "iptables "$0 }' | bash
+}
+
+add_port() {
+    port=$1
+    iptables -I INPUT -m set --match-set whitelist src -p tcp --dport ${port} -j ACCEPT
+}
+
+add_ip() {
+    white_ip=$1
+    iptables -I INPUT -s ${white_ip} -j ACCEPT
+}
+
+del_port() {
+    port=$1
+    iptables -S| grep "dport ${port} "| awk '{ gsub("-A", "-D"); print "iptables "$0 }' | bash
+}
+
+add_wip() {
+    aip="$1"
+    ipset add whitelist $aip
+}
+
+del_wip() {
+    aip="$1"
+    ipset del whitelist $aip
+}
+
+add_bip() {
+    aip="$1"
+    ipset add blacklist $aip
+}
+
+del_bip() {
+    aip="$1"
+    ipset del blacklist $aip
+}
+
+init_wlist() {
+    echo "初始化 whitelist 黑名单:"
+    ipset -! destroy whitelist
+    ipset create whitelist hash:net family inet hashsize 1024 maxelem 65536
+}
+
+init_blist() {
+    echo "初始化blacklist黑名单:"
+    ipset -! destroy blacklist
+    ipset create blacklist hash:net family inet hashsize 1024 maxelem 65536
+}
+
+
+firewall_status() {
+    echo "白名单IP列表规则:"
+    ipset list whitelist
+    echo "=============================="
+    echo "黑名单IP列表规则:"
+    ipset list blacklist
+    echo "=============================="
+    echo "防火墙规则:"
+    iptables -S
+    echo "=============================="
+    netstat -tuanp|grep LISTEN
+    echo "=============================="
+    echo "ipset白名单文件恢复、保存路径: ${ipset_file}"
+    echo "iptables防火墙规则文件恢复、保存路径: ${iptables_file}"
+    echo "=============================="
+}
+
+usage(){
+    cat <<END
+ Usage:     `green 防火墙管理脚本`
+    `basename $0` <init|save|restore>
+
+  Description:
+    `green init`        初始化防火墙规则，第一次配置时使用
+    `green save`        保存防火墙规则及黑白名单ipset列表到文件中
+    `green restore`     恢复防火墙规则及黑白名单ipset列表
+    `green status`      查看防火墙状态规则
+
+    `green open_port`   添加开放TCP端口(任何人都可访问)
+    `green add_port`    添加开放TCP端口(白名单可访问)
+    `green del_port`    删除开放TCP端口
+
+    `green add_ip`      添加开放IP地址(全部端口可访问)
+    `green add_wip`     添加白名单IP
+    `green del_wip`     删除白名单IP
+
+    `green add_bip`     添加黑名单IP(屏蔽恶意攻击IP)
+    `green del_bip`     删除黑名单IP
+
+    `green change_city`  切换城市的白名单IP段(重新设置白名单)
+END
+}
+
+show_menu() {
+    cat <<END
+------------------------------------------
+  `green ctrl+c`     退出
+  0.status   查看防火墙状态规则
+  1.init     初始化防火墙规则，第一次配置时使用
+  2.save     保存防火墙规则及黑白名单ipset列表到文件中
+  3.restore  恢复防火墙规则及黑白名单ipset列表
+  ---
+  4.open_port  添加开放TCP端口(任何人都可访问)
+  5.add_port   添加开放TCP端口(白名单可访问)
+  6.del_port   删除开放TCP端口
+  ---
+  7.add_ip     添加开放IP地址(全部端口可访问)
+  8.add_wip    添加白名单IP
+  9.del_wip    删除白名单IP
+  10.add_bip   添加黑名单IP(屏蔽恶意攻击IP)
+  11.del_bip   删除黑名单IP
+  --
+  12.change_city  切换城市的白名单IP段(重新设置白名单)
+END
+}
+
+do_action() {
+    str_action="$1"
+    case "$str_action" in
+        0)
+            firewall_status
+            ;;
+        1)
+            firewall_init
+            ;;
+        2)
+            firewall_save
+            ;;
+        3)
+            firewall_restore
+            ;;
+        4)
+            read -p "输入开放端口(1~65535):" str_port
+            if [ "$str_port" -lt "0" -o "$str_port" -gt "65535" ] ; then
+                echo "无效的输入端口[$str_port]"
+                return
+            fi
+            open_port $str_port
+            ;;
+        5)
+            read -p "输入开放端口(1~65535):" str_port
+            if [ "$str_port" -lt "0" -o "$str_port" -gt "65535" ] ; then
+                echo "无效的输入端口[$str_port]"
+                return
+            fi
+            add_port $str_port
+            ;;
+        6)
+            read -p "输入开放端口(1~65535):" str_port
+            if [ "$str_port" -lt "0" -o "$str_port" -gt "65535" ] ; then
+                echo "无效的输入端口[$str_port]"
+                return
+            fi
+            del_port $str_port
+            ;;
+        7)
+            read -p "输入开放IPv4地址:" str_ip
+            add_ip $str_ip
+            ;;
+        8)
+            read -p "输入开放IPv4地址:" str_ip
+            add_wip $str_ip
+            ;;
+        9)
+            read -p "输入需要删除的IPv4地址:" str_ip
+            del_wip $str_ip
+            ;;
+        10)
+            read -p "输入黑名单IPv4地址:" str_ip
+            add_bip $str_ip
+            ;;
+        11)
+            read -p "输入需要删除的IPv4地址:" str_ip
+            del_bip $str_ip
+            ;;
+        12)
+            change_city_ip
+            firewall_save
+            mv ${ipset_file} ${ipset_file}.bak
+            mv ${ipset_new} ${ipset_file}
+            firewall_restore
+            ;;
+        *)
+            usage
+            ;;
+    esac
+}
+
+
+loop_run() {
+    # 循环提示和根据输入执行操作
+    while :
+    do
+        show_menu
+        read -p "输入选择:" str_answer
+
+        if [ "$str_answer" -lt "0" -o "$str_answer" -ge "13" ] ; then
+            echo "无效输入选择[$str_answer]!"
+            continue
+        fi
+        do_action $str_answer
+    done
+}
+
+if [ "$#" -gt "0" ] ; then
+    action="$1"
+    case "$action" in
+        init)
+            firewall_init
+            ;;
+        save)
+            firewall_save
+            ;;
+        restore)
+            firewall_restore
+            ;;
+        status)
+            firewall_status
+            ;;
+        change_city)
+            change_city_ip
+            ;;
+        add_wip|add_port|del_wip|del_port|add_bip|del_bip|open_port)
+            $action $2
+            ;;
+        *)
+            usage
+            ;;
+    esac
+else
+    # 循环执行
+    loop_run
+fi
+

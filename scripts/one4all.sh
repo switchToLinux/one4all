@@ -14,7 +14,7 @@
 #   OUTPUTLOG - no 表示只输出日志信息到文件中,不在终端显示，默认为 yes(终端显示)
 #
 
-ONECFG=~/.config/one4all
+export ONECFG=~/.config/one4all
 REPO_URL=https://github.com/switchToLinux/one4all
 
 #### 检测当前终端支持色彩
