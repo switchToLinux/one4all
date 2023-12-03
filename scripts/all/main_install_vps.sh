@@ -77,7 +77,8 @@ function show_menu_vps() {
     menu_tail
 }
 
-function do_vps_all() { # 配置菜单选择
+
+function do_server_all() { # 配置菜单选择
     while true
     do
         show_menu_vps
