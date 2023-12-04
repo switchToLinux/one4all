@@ -1,0 +1,269 @@
+#!/bin/bash
+###########################################################3
+# 功能: VPS自动配置
+# 1. 配置基础环境: 包括终端字符集、基本工具vim/git/python3.9+等
+# 2. 配置shell环境: 新建工作目录，增加普通用户(不可以使用密码登录，仅支持RSA密钥访问),sudo免密码,使用 `oh-my-zsh`
+# 3. 防火墙配置: 添加SSH登录限制(非ipset的whitelist中IP段不可以登录)，端口限制(非必要端口禁止访问)，禁止ICMP/UDP消息
+#
+#   适用于: CentOS8+/AlmaLinux/RockyLinux/Debian系列
+#   作者: Awkee
+###########################################################3
+
+
+########### 文字显示 ######
+white() {
+    printf "\033[0;37m $@ \033[0m"
+}
+red() {
+    printf "\033[0;31;1m $@ \033[0m"
+}
+green() {
+    printf "\033[0;32;1m $@ \033[0m"
+}
+
+lwhite() {
+    printf "\033[0;37m $@ \033[0m\n"
+}
+lred() {
+    printf "\033[0;31;1m $@ \033[0m\n"
+}
+lgreen() {
+    printf "\033[0;32;1m $@ \033[0m\n"
+}
+
+bgreen() {
+    printf "\033[0;32;7m $@ \033[0m"
+}
+
+
+install_fwctl() {
+    read -p "输入安装fwctl工具位置(默认目录:/usr/bin):" str_fw_path
+    [[ -d "$str_fw_path" ]] || str_fw_path="/usr/bin"
+    fw_file="$str_fw_path/fwctl"
+    fwctl_url="https://raw.githubusercontent.com/learnhard-cn/vps_config/main/firewall/fwctl"
+    curl -o $fw_file -L $fwctl_url
+    chmod +x $fw_file
+    $fw_file help
+}
+
+update_src() {
+    # 1.备份
+    mv /etc/yum.repos.d/CentOS-Base.repo /etc/yum.repos.d/CentOS-Base.repo.backup
+    # 2.下载新的 CentOS-Base.repo 到 /etc/yum.repos.d/
+    curl -o /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-8.repo
+
+    # 3. 运行 yum makecache 生成缓存
+    yum makecache
+}
+
+update_epel(){
+    echo "更新EPEL软件源为阿里云源"
+    # 1. 备份(如有配置其他epel源)
+    mv /etc/yum.repos.d/epel.repo /etc/yum.repos.d/epel.repo.backup
+
+    # 2. 下载新repo 到/etc/yum.repos.d/
+    ### 1）安装 epel 配置包
+    yum install -y https://mirrors.aliyun.com/epel/epel-release-latest-8.noarch.rpm
+    ### 2）将 repo 配置中的地址替换为阿里云镜像站地址
+    sed -i 's|^#baseurl=https://download.example/pub|baseurl=https://mirrors.aliyun.com|' /etc/yum.repos.d/epel*
+    sed -i 's|^metalink|#metalink|' /etc/yum.repos.d/epel*
+
+    # 3. 运行 yum makecache 生成缓存
+    yum makecache
+}
+
+install_basic() {
+    echo "`green 安装基础工具...`"
+    yum update
+    which curl >/dev/null || yum install -y curl
+    which netstat >/dev/null || yum install -y net-tools
+    which tmux >/dev/null || yum install -y tmux
+    which zsh >/dev/null || yum install -y zsh
+}
+
+install_langpack() {
+    echo "中文语言支持"
+    yum install -y glibc-common langpacks-zh_CN.noarch
+    for shprofile in "$HOME/.bashrc" "$HOME/.zshrc"
+    do
+        [[ -f "$shprofile" ]] && echo 'export LC_ALL="zh_CN.UTF-8"' >> ${shprofile}
+    done
+    echo 'export LC_ALL="zh_CN.UTF-8"' >> /etc/locale.conf
+}
+
+
+config_sysctl() {
+    echo "配置网络:开始..."
+
+    echo "备份sysctl.conf文件"
+    sysctl_file="/etc/sysctl.conf"
+    [[ -f  "$sysctl_file" ]] && cp ${sysctl_file} ${sysctl_file}.bak
+    echo "下载并添加网络优化配置信息"
+    conf_url="https://gist.githubusercontent.com/Awkee/d0279f32599b48516c4747c94c2fa3e6/raw/cdbadd013a84a2e83678828a505aa4263f5a2e77/sysctl.conf"
+    sysctld="/etc/sysctl.d"
+    [[ -d "$sysctld" ]] && curl -L $conf_url >> /etc/sysctl.d/vps_speedup.conf
+    [[ ! -d "$sysctld" ]] && curl -L $conf_url >> /etc/sysctl.conf
+    echo "生效配置"
+    sysctl -p
+    
+    echo "配置网络:结束!"
+}
+
+show_menu_proxy() {
+    cat <<END
+    1. 安装SS(libev版本),命令:ssctl
+    2. 安装SS(GoLang版本),命令: ss2ctl
+    3. 安装SSR(ShadowsocksR-native版本,源码编译安装,时间有点长),
+    4. 安装V2ray(不支持Xray),命令: v2ray
+    5. 安装V2ray(支持Xray),命令: vasma
+    a. 网络优化参数配置(包括开启BBR,Web服务网络参数配置优化)
+    b. Netflix一键测试流媒体解锁
+    q. Quit
+END
+}
+
+install_proxy() {
+
+    while true
+    do
+        show_menu_proxy
+        read -r -n 1 -e -p "选择安装一键安装脚本操作:"  str_answer
+        case "$str_answer" in
+            1)
+                lgreen "安装SS(libev版本),安装后执行命令:ssctl"
+                dn_url="https://raw.githubusercontent.com/Awkee/install_linux/main/proxy/install_ss_src.sh"
+                curl -L -o /usr/bin/ssctl $dn_url && chmod +x /usr/bin/ssctl && ssctl
+                ;;
+            2)
+                lgreen "安装SS(GoLang版本),安装后执行命令:ss2ctl"
+                dn_url="https://raw.githubusercontent.com/Awkee/install_linux/main/proxy/install_ss.sh"
+                curl -L -o /usr/bin/ss2ctl $dn_url && chmod +x /usr/bin/ss2ctl && ss2ctl
+                ;;
+            3)
+                lgreen "安装SSR(ShadowsocksR-native版本,源码编译安装,时间有点长):"
+                dn_url="https://raw.githubusercontent.com/ShadowsocksR-Live/shadowsocksr-native/master/install/ssrn-install.sh"
+                curl -L $dn_url -o ssrn-install.sh && chmod +x ssrn-install.sh && ./ssrn-install.sh
+                ;;
+            4)
+                lgreen "安装V2ray(不支持Xray),安装后执行命令: v2ray"
+                bash <(curl -s -L https://raw.githubusercontent.com/233boy/v2ray/master/install.sh)
+                ;;
+            5)
+                lgreen "安装V2ray(支持Xray),安装后执行命令: vasma"
+                dn_url="https://raw.githubusercontent.com/mack-a/v2ray-agent/master/install.sh"
+                curl -o $HOME/install.sh -L $dn_url && chmod +x $HOME/install.sh && $HOME/install.sh
+                ;;
+
+            a)
+                lgreen "配置网络优化参数:/etc/sysctl.conf"
+                config_sysctl
+                ;;
+            b)
+                lgreen "Netflix一键测试流媒体解锁"
+                [[ `which nf` ]] && nf && return 0
+                curl -o /usr/bin/nf -L -s check.unlock.media
+                if [ "$?" != "0" ] ; then
+                    nf_url="https://github.com/sjlleo/netflix-verify/releases/download/v3.1.0/nf_linux_amd64"
+                    curl -sSL -o /usr/bin/nf ${nf_url}
+                fi
+                chmod +x /usr/bin/nf && nf
+                lred "最新Netflix价格表(已经转换为人民币价格)"
+                lred "链接地址: https://vlike.work/default/142.html "
+                ;;
+            q) return 0 ;;
+            *)  red "不按套路出牌!选择无效!"  ;;
+        esac
+    done
+
+}
+usage() {
+    cat <<END
+
+ 帮助信息:
+
+    `basename $0` `green add_user`              添加管理员用户
+
+    `basename $0` `green install_ohmyzsh`       安装ohmyzsh环境
+    `basename $0` `green install_langpack`      安装中文语言支持
+    `basename $0` `green intall_python3`        安装python3.9环境
+
+    `basename $0` `green update_src`            更新软件源为阿里云(香港VPS用)
+    `basename $0` `green update_epel`           更新EPEL为阿里云(香港VPS用)
+    `basename $0` `green update_timezone`       更新时区信息为国内时区(方便时间查看)
+
+    `basename $0` `green install_fwctl`         安装`red fwctl`防火墙配置工具(简化配置白名单规则、开放端口等)
+    `basename $0` `green install_proxy`         安装一键安装脚本(SS、SSR、V2ray、V2rayXray)
+
+END
+}
+
+
+main() {
+    action="$1"
+    case "$action" in
+        add_user|install_ohmyzsh|install_langpack|install_python3|install_fwctl|config_sysctl)
+            $action
+        ;;
+        update_timezone|update_src|update_epel)
+            $action
+        ;;
+        install_proxy)
+            $action
+        ;;
+        help|-h)
+            usage
+            exit 0
+        ;;
+        *)
+            echo "参数错误: $action"
+            usage
+            exit 0
+        ;;
+    esac
+}
+
+show_menu_main() {
+    echo "  选项菜单"
+    echo "    1. install_proxy"
+    echo "    2. install_fwctl"
+    echo "    3. install_langpack"
+    echo "    4. update_timezone"
+    echo "    5. update_epel"
+    echo "    6. update_src  更新为阿里云源(国内用)"
+    echo "    7. install_python3 安装python3.9版本环境"
+    echo "    8. install_ohmyzsh"
+    echo "    9. add_user"
+    edho "    t. install_tmux"
+    echo "    q. quit"
+}
+
+start_main() {
+    while true
+    do
+        show_menu_main
+        read -r -n 1 -e  -p "`green 请选择:`${PMT} " str_answer
+        case "$str_answer" in
+            1) install_proxy    ;;
+            2) install_fwctl    ;;
+            3) install_langpack ;;
+            4) update_timezone  ;;
+            5) update_epel      ;;
+            6) update_src       ;;
+            7) install_python3  ;;
+            8) install_ohmyzsh  ;;
+            9) add_user         ;;
+            t) install_tmux     ;;
+            q) return 0         ;;  # 返回上级菜单
+            *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
+        esac
+    done
+}
+
+install_basic
+
+# 执行模块 #
+if [ "$#" = "0" ] ; then
+    start_main
+else
+    main $@
+fi
