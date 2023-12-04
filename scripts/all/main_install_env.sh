@@ -19,16 +19,19 @@ function config_langpack() {  # 中文语言支持 zh_CN.UTF-8
     locale -a | grep -Ei "$local_charset|$charset_name" >/dev/null
     if [ "$?" != "0" ] ; then
         case "$os_type" in
-            debian|ubuntu*)
-                command -v locale-gen >/dev/null
-                if [ "$?" = "0" ] ; then
-                    sudo locale-gen $local_charset
-                else
-                    sudo dpkg-reconfigure locale
-                fi
+            debian|ubuntu*|kali)
+                sudo $pac_cmd_ins libc-bin language-pack-zh-hans
+                command -v locale-gen >/dev/null || sudo dpkg-reconfigure locale
                 ;;
-            centos|almalinux)
-                sudo $pac_cmd_ins glibc-common langpacks-zh_CN ;;
+            centos|almalinux|fedora)
+                sudo $pac_cmd_ins glibc langpacks-zh_CN.noarch
+                ;;
+            opensuse*)
+                sudo $pac_cmd_ins glibc-common wqy-zenhei-fonts
+                ;;
+            arch|manjaro)
+                sudo $pac_cmd_ins glibc wqy-zenhei
+                ;;
             *)
                 redr_line "不支持的系统类型!暂时无法设置中文支持"
                 return 1
@@ -40,6 +43,7 @@ function config_langpack() {  # 中文语言支持 zh_CN.UTF-8
             return 0
         fi
     fi
+    sudo locale-gen $local_charset
     shprofile="$HOME/.`basename $SHELL`rc"  # 设置当前SHELL环境配置
     local_name=`locale -a | grep -Ei "$local_charset|$charset_name"`
     [[ -f "$shprofile" ]] && echo export LC_ALL="$local_name" >> ${shprofile}
@@ -128,14 +132,22 @@ function config_source() { # 配置软件源为国内源(清华大学源速度�
             fi
             [[ "$os_codename" == "bullseye" ]]  && sudo sed -i "s/ non-free-firmware//g" $source_file
             ;;
+        kali)
+            sudo sed -i "s@http://http.kali.org/kali@https://mirrors.tuna.tsinghua.edu.cn/kali@g" /etc/apt/sources.list
+            ;;
         manjaro)
             # 自动测试并选择延迟最低的镜像源地址(通过-c参数选择国家)
             # sudo pacman-mirrors -g -c China
             # 手动根据提示选择镜像源地址
             sudo pacman-mirrors -i -c China -m rank
             # 更新软件源本地缓存
-            sudo pacman -Syy
+            sudo pacman -Syyu
             ;;
+        arch)
+            mirror_file="/etc/pacman.d/mirrorlist"
+            sudo cp $mirror_file ${mirror_file}.bak
+            sudo sh -c 'echo "Server = https://mirrors.tuna.tsinghua.edu.cn/archlinux/\$repo/os/\$arch" > $mirror_file'
+            sudo pacman -Syyu
         *)
             redr_line "不支持的系统类型!暂时无法支持!"
             return 1
