@@ -139,7 +139,11 @@ function install_vim() {
     # 配置 vim 
     prompt "开始安装VIM" || return 1
     
-    ! prompt "是否安装neovim?(默认安装vim)" && install_neovim && return 0
+    prompt "是否安装neovim?(默认安装vim)"
+    if [[ "$?" == "0" ]] ; then 
+        install_neovim
+        return 0
+    fi
     
     command -v vim || sudo $pac_cmd_ins  vim
     # 配置 .vimrc 文件base64数据模板
