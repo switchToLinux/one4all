@@ -162,6 +162,8 @@ function install_neovim() {
     prompt "开始安装NeoVIM" || return 1
     command -v nvim || sudo $pac_cmd_ins neovim
     [[ -d ~/.config/nvim ]] && ( prompt "检测到已经有NeoVIM配置,是否重新配置NeoVIM" || return 1 )
+    [[ -L ~/.config/nvim ]] && ( prompt "检测到已经有NeoVIM配置的软链接,是否重新配置NeoVIM" || return 1 )
+
     loginfo "配置 neovim"
     cp -rf $ONECFG/dotfiles/nvim ~/.config/
     loginfo "成功执行 install_neovim"
