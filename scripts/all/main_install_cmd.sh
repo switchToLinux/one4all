@@ -139,8 +139,7 @@ function install_vim() {
     # 配置 vim 
     prompt "开始安装VIM" || return 1
     
-    prompt "是否使用默认的neovim?(选择否则安装vim)"
-    [[ "$?" == "0" ]] && ( install_neovim ; return 0 )
+    ! prompt "是否安装neovim?(默认安装vim)" && install_neovim && return 0
     
     command -v vim || sudo $pac_cmd_ins  vim
     # 配置 .vimrc 文件base64数据模板
@@ -161,11 +160,12 @@ function install_neovim() {
 
     prompt "开始安装NeoVIM" || return 1
     command -v nvim || sudo $pac_cmd_ins neovim
-    [[ -d ~/.config/nvim ]] && ( prompt "检测到已经有NeoVIM配置,是否重新配置NeoVIM" || return 1 )
-    [[ -L ~/.config/nvim ]] && ( prompt "检测到已经有NeoVIM配置的软链接,是否重新配置NeoVIM" || return 1 )
-
-    loginfo "配置 neovim"
-    cp -rf $ONECFG/dotfiles/nvim ~/.config/
+    if [[ -d ~/.config/nvim ]] ; then
+        prompt "检测到已经有NeoVIM配置,是否重新配置NeoVIM" || return 1
+    elif [[ -L ~/.config/nvim ]] ; then
+        prompt "检测到已经有NeoVIM配置的软链接,是否重新配置NeoVIM" || return 1
+    fi
+    loginfo "配置 neovim"  && cp -rf $ONECFG/dotfiles/nvim ~/.config/
     loginfo "成功执行 install_neovim"
 }
 function install_yq() {
