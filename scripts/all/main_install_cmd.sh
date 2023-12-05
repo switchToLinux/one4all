@@ -71,7 +71,15 @@ function install_ohmyzsh() {
     prompt "开始安装 ohmyzsh" || return 1
     [[ -d "$HOME/.oh-my-zsh" ]] && loginfo "已经安装过 ohmyzsh 环境了" && return 0
     ! command -v zsh && sudo $pac_cmd_ins zsh
-    sh -c "RUNZSH=no $(${curl_cmd} -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+
+    # 默认国外Github源代码
+    ohmyzsh_url="https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh"
+    OHMYZSH_REMOTE="https://github.com/ohmyzsh/ohmyzsh.git"
+    
+    # 适合国内服务器的gitee源代码
+    prompt "使用国内Gitee安装源"  && ohmyzsh_url="https://gitee.com/mirrors/oh-my-zsh/raw/master/tools/install.sh"  && OHMYZSH_REMOTE="https://gitee.com/mirrors/oh-my-zsh.git"
+    
+    REMOTE=${OHMYZSH_REMOTE} RUNZSH=no $(${curl_cmd} -fsSL ${ohmyzsh_url})
     [[ "$?" != "0" ]] && redr_line "安装ohmyzsh失败了!! 看看报错信息! 稍后重新安装试试!"  && return 1
 
     loginfo "开始安装Powerline字体"
