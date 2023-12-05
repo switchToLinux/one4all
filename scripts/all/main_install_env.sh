@@ -250,6 +250,7 @@ function show_menu_config() { # 显示 config 子菜单
     menu_item q 返回上级菜单
     menu_tail
 }
+
 function do_config_all() { # 配置菜单选择
     while true
     do

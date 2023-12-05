@@ -105,6 +105,7 @@ source ${ONECFG}/scripts/all/prompt_functions.sh
 
 # 导入全部功能模块 #
 for fn in `ls ${ONECFG}/scripts/all/main_*.sh` ; do
+    echo "加载 `basename ${fn}` 文件"
     source ${fn}
 done
 
