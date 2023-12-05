@@ -167,11 +167,42 @@ function install_vim() {
     fi
     install_ctags
 }
+
+function install_build_dependencies() {
+    case "$os_type" in
+    ubuntu|debian)
+        sudo apt-get install -y ninja-build gettext cmake unzip curl
+        ;;
+    centos|rhel|almalinux|fedora)
+        sudo dnf -y install ninja-build cmake gcc make unzip gettext curl
+        ;;
+    opensuse*)
+        sudo zypper install -y ninja cmake gcc-c++ gettext-tools curl
+        ;;
+    arch|manjaro)
+        sudo pacman -S --needed base-devel cmake unzip ninja curl
+        ;;
+    esac
+}
 function install_neovim() {
     loginfo "正在执行 install_neovim"
 
     prompt "开始安装NeoVIM" || return 1
-    command -v nvim || sudo $pac_cmd_ins neovim
+    command -v nvim
+    if [ "$?" = "0" ] ; then
+        echo "已经安装过neovim 了"
+    else
+        prompt "源码编译安装NeoVIM"
+        if [ "$?" = "0" ] ; then
+            install_build_dependencies
+            git clone https://github.com/neovim/neovim
+            cmake_prefix=/usr/local
+            prompt "使用安装目录/usr, 默认为 /usr/local" && cmake_prefix=/usr
+            cd neovim && git checkout stable && make CMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=${cmake_prefix} && sudo make install
+        else
+            sudo $pac_cmd_ins neovim
+        fi
+    fi
     if [[ -d ~/.config/nvim ]] ; then
         prompt "检测到已经有NeoVIM配置,是否重新配置NeoVIM" || return 1
     elif [[ -L ~/.config/nvim ]] ; then
