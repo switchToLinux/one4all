@@ -148,9 +148,11 @@ function config_source() { # 配置软件源为国内源(清华大学源速度�
             sudo cp $mirror_file ${mirror_file}.bak
             sudo sh -c 'echo "Server = https://mirrors.tuna.tsinghua.edu.cn/archlinux/\$repo/os/\$arch" > $mirror_file'
             sudo pacman -Syyu
+            ;;
         *)
             redr_line "不支持的系统类型!暂时无法支持!"
             return 1
+            ;;
     esac
     loginfo "成功执行 config_source"
 }
