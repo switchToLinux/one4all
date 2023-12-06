@@ -195,10 +195,15 @@ function install_neovim() {
         prompt "源码编译安装NeoVIM"
         if [ "$?" = "0" ] ; then
             install_build_dependencies
-            git clone https://github.com/neovim/neovim
+            prompt "使用国内gitee源安装"
+            if [ "$?" = "0" ] ; then
+                git clone https://gitee.com/mirrors/neovim.git
+            else
+                git clone https://github.com/neovim/neovim.git
+            fi
             cmake_prefix=/usr/local
             prompt "使用安装目录/usr, 默认为 /usr/local" && cmake_prefix=/usr
-            cd neovim && git checkout stable && make CMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=${cmake_prefix} && sudo make install
+            cd neovim && git checkout stable && make CMAKE_BUILD_TYPE=RelWithDebInfo CMAKE_INSTALL_PREFIX=${cmake_prefix} && sudo make install
         else
             sudo $pac_cmd_ins neovim
         fi
