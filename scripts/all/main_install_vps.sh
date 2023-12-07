@@ -62,6 +62,20 @@ function do_nginx_all() { # 配置菜单选择
     done
 }
 
+function vps_install_docker() {
+    # 安装 Docker
+    case "$os_type" in
+    debian|ubuntu)
+        sudo  ${pac_cmd_ins} docker.io docker-compose
+        ;;
+    centos|opensuse|fedora|arch|manjaro)
+        sudo ${pac_cmd_ins} docker docker-compose
+    sudo usermod -aG docker $USER
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    echo "重新登录系统后可以在当前用户下使用docker"
+
+}
 function vps_install_vpsctl() {
     common_install_command vpsctl https://git.io/vpsctl
     [[ "$?" = "0" ]] && echo "验证 vpsctl 命令:" && vpsctl help
@@ -71,6 +85,7 @@ function show_menu_vps() {
     menu_item 1 fwctl防火墙管理
     menu_item 2 "更新时区+0800"
     menu_item 3 配置nginx
+    menu_item 4 安装Docker-Compose
 
     menu_tail
     menu_item q 返回上级菜单
@@ -87,6 +102,7 @@ function do_server_all() { # 配置菜单选择
             1) vps_install_fwctl    ;;
             2) vps_update_timezone  ;;
             3) do_nginx_all         ;;
+            4) vps_install_docker   ;;
             q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
