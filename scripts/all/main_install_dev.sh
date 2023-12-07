@@ -12,7 +12,7 @@
 
 # Elastic Stack Version
 
-ES_VERSION="8.7.1"
+ES_VERSION="8.11.1"
 
 ########## 开发环境 install_develop ##########################
 function install_sdwebui() {
@@ -72,11 +72,12 @@ function install_elasticsearch() {
     
     es_url="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}-linux-x86_64.tar.gz"
     install_path="${1:-.}"       # 默认安装路径
+    install_name="elasticsearch-${ES_VERSION}"
 
     read -p "请输入安装目录(默认安装位置：${install_path}):" str_path
     [[ "$str_path" != "" ]] || install_path=$str_path
     [[ ! -d "$install_path" ]] && ! mkdir $install_path && loginfo "目录创建失败!" && return 1
-    es_path="${install_path}/elasticsearch-${ES_VERSION}/"
+    es_path="${install_path}/${install_name}/"
     [[ -d "$es_path" ]] && loginfo "已经安装过了!" && return 1
 
     tmp_dir="/tmp"
@@ -85,11 +86,15 @@ function install_elasticsearch() {
     [[ "$?" != "0" ]] && loginfo "下载 ${filename} 失败!" && return 1
     
     tar axvf ${tmp_dir}/${filename} -C $install_path  &&  loginfo "解压缩 $filename 文件到 $install_path 目录成功"
-    cd $es_path
+    cd $es_path && cd ../
     [[ "$?" != "0" ]] && echo "安装失败! 安装目录: $es_path" && return 1
     loginfo "成功安装目录: $es_path"
+    link_name="es"
+    [[ -L "./${link_name}" ]]  && unlink ./${link_name}
+    ln -sf  ${install_name} ${link_name}
+    es_home="${install_path}/${link_name}"
     echo "使用前请设置 环境变量(添加到 ~/.bashrc 文件)或者保存到自己编写的启动脚本中: "
-    echo "export ES_HOME=$es_path "
+    echo "export ES_HOME=${es_home}"
     echo "export ES_JAVA_OPTS=\"-Xms512m -Xmx512m\""
     echo "运行命令:   \$ES_HOME/bin/elasticsearch -d -p /tmp/myes.pid"
     echo "停止命令:   pkill -F /tmp/myes.pid"
@@ -100,11 +105,12 @@ function install_kibana() {
     es_url="https://artifacts.elastic.co/downloads/kibana/kibana-${ES_VERSION}-linux-x86_64.tar.gz"
 
     install_path="${1:-.}"       # 默认安装路径
+    install_name="kibana-${ES_VERSION}"
     prompt "开始安装 Kibana...(默认安装位置为： ${install_path})"
     if [ "$?" != "0" ] ; then
         read -p "请输入安装目录:" install_path
     fi
-    es_path="${install_path}/kibana-${ES_VERSION}/"
+    es_path="${install_path}/${install_name}/"
     [[ ! -d "$install_path" ]] && ! mkdir $install_path && loginfo "目录创建失败!" && return 1
     [[ -d "$es_path" ]] && loginfo "已经安装过了!" && return 1
 
@@ -114,11 +120,16 @@ function install_kibana() {
     [[ "$?" != "0" ]] && loginfo "下载 ${filename} 失败" && return 1
     
     tar axvf ${tmp_dir}/${filename} -C $install_path  &&  loginfo "解压缩 $filename 文件到 $install_path 目录成功"
-    cd $es_path && cd ../ && unlink kibana && ln -sf kibana-${ES_VERSION} kibana
+    cd $es_path && cd ../
     [[ "$?" != "0" ]] && echo "安装失败! 安装目录: $es_path" && return 1
     loginfo "成功安装目录: $es_path"
+
+    link_name="kibana"
+    [[ -L "./${link_name}" ]]  && unlink ./${link_name}
+    ln -sf  ${install_name} ${link_name}
+    es_home="${install_path}/${link_name}"
     loginfo "使用前请设置 环境变量(添加到 ~/.bashrc 文件): "
-    loginfo " export KIBANA_HOME=$es_path "
+    loginfo " export KIBANA_HOME=$es_home"
     loginfo "运行命令:   \$KIBANA_HOME/bin/kibana"
     loginfo "配置文件:   \$KIBANA_HOME/config/kibana.yml"
     loginfo "安装 Kibana 完成!"
@@ -128,11 +139,12 @@ function install_logstash() {
     es_url="https://artifacts.elastic.co/downloads/logstash/logstash-${ES_VERSION}-linux-x86_64.tar.gz"
 
     install_path="${1:-.}"       # 默认安装路径
+    install_name="logstash-${ES_VERSION}"
     prompt "开始安装 logstash...(默认安装位置为： ${install_path})"
     if [ "$?" != "0" ] ; then
         read -p "请输入安装目录:" install_path
     fi
-    es_path="${install_path}/logstash-${ES_VERSION}/"
+    es_path="${install_path}/${install_name}/"
     [[ ! -d "$install_path" ]] && ! mkdir $install_path && loginfo "目录创建失败!" && return 1
     [[ -d "$es_path" ]] && loginfo "已经安装过了!" && return 1
 
@@ -142,15 +154,21 @@ function install_logstash() {
     [[ "$?" != "0" ]] && loginfo "下载 ${filename} 失败" && return 1
     
     tar axvf ${tmp_dir}/${filename} -C $install_path  &&  loginfo "解压缩 $filename 文件到 $install_path 目录成功"
-    cd $es_path && cd ../ && unlink logstash && ln -sf logstash-${ES_VERSION} logstash
+    cd $es_path && cd ../
     [[ "$?" != "0" ]] && echo "安装失败! 安装目录: $es_path" && return 1
     loginfo "成功安装目录: $es_path"
+    
+    link_name="logstash"
+    [[ -L "./${link_name}" ]]  && unlink ./${link_name}
+    ln -sf  ${install_name} ${link_name}
+    es_home="${install_path}/${link_name}"
     loginfo "使用前请设置 环境变量(添加到 ~/.bashrc 文件): "
-    loginfo " export LOGSTASH_HOME=$es_path "
+    loginfo " export LOGSTASH_HOME=$es_home"
     loginfo "运行命令:   \$LOGSTASH_HOME/bin/logstash -f xxx.conf"
     loginfo "配置文件:   \$LOGSTASH_HOME/config"
     loginfo "安装 Logstash 完成!"
 }
+
 function install_nodejs() {
     nodejs_type="${1:-LTS}"   # nodejs 类型 LTS 或 latest最新版
     loginfo "正在执行 install_nodejs"
