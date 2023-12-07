@@ -12,7 +12,8 @@
 
 # Elastic Stack Version
 
-ES_VERSION="8.11.1"
+# 可选择的ES版本列表 #
+ES_VERSION_LIST="8.7.1\n8.11.1\ncustom"
 
 ########## 开发环境 install_develop ##########################
 function install_sdwebui() {
@@ -63,13 +64,26 @@ function install_sdwebui() {
     loginfo "成功执行 install_sdwebui"
 }
 
+function select_elastic_version() {
+    choice=$(echo -e "$ES_VERSION_LIST"  | fzf)
+    case "$choice" in
+        custom)  # 自定义选择版本号(可能会失败)
+            read -p "请输入自定义的Elastic版本号" ES_VERSION
+        ;;
+        *)
+            ES_VERSION="$choice"
+        ;;
+    esac
+}
 function install_elasticsearch() {
 
     prompt "开始安装 Elasticsearch..." || return 1
 
     cur_username=`whoami`
     prompt "是否确认在当前用户($cur_username)下安装Elasticsearch" || return 1
-    
+
+    select_elastic_version
+
     es_url="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}-linux-x86_64.tar.gz"
     install_path="${1:-.}"       # 默认安装路径
     install_name="elasticsearch-${ES_VERSION}"
@@ -102,6 +116,9 @@ function install_elasticsearch() {
     echo "安装 Elasticsearch 完成!"
 }
 function install_kibana() {
+
+    select_elastic_version
+
     es_url="https://artifacts.elastic.co/downloads/kibana/kibana-${ES_VERSION}-linux-x86_64.tar.gz"
 
     install_path="${1:-.}"       # 默认安装路径
@@ -136,6 +153,9 @@ function install_kibana() {
 }
 
 function install_logstash() {
+
+    select_elastic_version
+
     es_url="https://artifacts.elastic.co/downloads/logstash/logstash-${ES_VERSION}-linux-x86_64.tar.gz"
 
     install_path="${1:-.}"       # 默认安装路径

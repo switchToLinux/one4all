@@ -92,6 +92,7 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
 function check_basic() { # 基础依赖命令检测与安装
     command -v curl >/dev/null || sudo $pac_cmd_ins curl     # 检测 curl 命令
     command -v git >/dev/null  || sudo $pac_cmd_ins git      # 检测 git 命令
+    command -v fzf >/dev/null  || sudo $pac_cmd_ins fzf     # 检测 fzf 命令 用于提供选项确认
     command -v chsh >/dev/null || sudo $pac_cmd_ins util-linux-user   # 检测 chsh 命令(fedora)
 }
 
