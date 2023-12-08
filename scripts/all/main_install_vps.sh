@@ -74,7 +74,8 @@ function vps_install_docker() {
     sudo systemctl start docker
     sudo systemctl enable docker
     echo "重新登录系统后可以在当前用户下使用docker"
-
+    ;;
+    esac
 }
 function vps_install_vpsctl() {
     common_install_command vpsctl https://git.io/vpsctl
