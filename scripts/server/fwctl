@@ -65,6 +65,7 @@ green() {
 gen_cn_ip() {
     # 生成默认的全国过IP段 ipset 白名单规则
     echo "create whitelist hash:net family inet hashsize 1024 maxelem 65536" > ${ipset_new}
+    ipset create whitelist hash:net family inet hashsize 1024 maxelem 65536
     # cn_url="https://bgp.space/china.html"
     cn_url="https://asn.bgp.space/china.html"
     curl ${cn_url} 2>/dev/null | awk '/^[1-9]/{ gsub("<br>",""); print "add whitelist "$0 }' >> ${ipset_new}
@@ -103,6 +104,9 @@ gen_city_ip() {
         # 找到匹配地区IP段文件
         echo "create blacklist hash:net family inet hashsize 1024 maxelem 65536" > ${ipset_new}
         echo "create whitelist hash:net family inet hashsize 1024 maxelem 65536" >> ${ipset_new}
+
+        ipset create blacklist hash:net family inet hashsize 1024 maxelem 65536
+        ipset create whitelist hash:net family inet hashsize 1024 maxelem 65536
 
         read -p "输入您的网络运营商名称[联通, 电信, 移动, 铁通, 科技网, 广电, 教育网, 方正宽带](回车选择默认:全部):" str_isp
         cat $tmp_file | while read fn
@@ -426,6 +430,8 @@ loop_run() {
     do
         show_menu
         read -p "输入选择:" str_answer
+
+        [[ "$str_answer" == "" ]] && break
 
         if [ "$str_answer" -lt "0" -o "$str_answer" -ge "13" ] ; then
             echo "无效输入选择[$str_answer]!"
