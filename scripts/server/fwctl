@@ -3,8 +3,6 @@
 ### 功能: iptables防火墙管理脚本
 ### 作者: Awkee
 ### 
-#   链接: https://git.io/fwctl
-#   博客: https://vlike.work
 #
 # IP数据源参考链接:
 #   - 按省市级分类IP段: https://github.com/out0fmemory/qqwry.dat
@@ -20,6 +18,9 @@ ipset_new=/etc/ipset_new.txt
 
 # 保存iptables规则(不同的系统默认存放路径并不同，本脚本独立保存到/etc目录)
 iptables_file=/etc/iptables_fwctl
+
+
+
 
 ########### 文字显示 ######
     ## 格式:\033[属性;文本色;背景色m
@@ -65,7 +66,7 @@ green() {
 gen_cn_ip() {
     # 生成默认的全国过IP段 ipset 白名单规则
     echo "create whitelist hash:net family inet hashsize 1024 maxelem 65536" > ${ipset_new}
-    ipset create whitelist hash:net family inet hashsize 1024 maxelem 65536
+    init_wlist
     # cn_url="https://bgp.space/china.html"
     cn_url="https://asn.bgp.space/china.html"
     curl ${cn_url} 2>/dev/null | awk '/^[1-9]/{ gsub("<br>",""); print "add whitelist "$0 }' >> ${ipset_new}
@@ -105,8 +106,8 @@ gen_city_ip() {
         echo "create blacklist hash:net family inet hashsize 1024 maxelem 65536" > ${ipset_new}
         echo "create whitelist hash:net family inet hashsize 1024 maxelem 65536" >> ${ipset_new}
 
-        ipset create blacklist hash:net family inet hashsize 1024 maxelem 65536
-        ipset create whitelist hash:net family inet hashsize 1024 maxelem 65536
+        init_blist
+        init_wlist
 
         read -p "输入您的网络运营商名称[联通, 电信, 移动, 铁通, 科技网, 广电, 教育网, 方正宽带](回车选择默认:全部):" str_isp
         cat $tmp_file | while read fn
@@ -166,10 +167,12 @@ firewall_init() {
 
     echo "安装iptables-service服务"
     if command -v yum >/dev/null ; then
-        yum install -y ipset iptables-services
+        sudo yum install -y ipset iptables-services
     elif command -v apt >/dev/null ; then
-        apt remove ufw
-        apt install -y ipset iptables iptables-persistent
+       sudo apt remove ufw
+       sudo apt install -y ipset iptables iptables-persistent
+    elif command -v pacman >/dev/null ; then
+        sudo pacman -Sy --needed ipset iptables
     fi
 
     echo "配置 iptables 防火墙规则:"
@@ -295,7 +298,7 @@ firewall_status() {
     echo "防火墙规则:"
     iptables -S
     echo "=============================="
-    netstat -tuanp|grep LISTEN
+    ss -tuanp|grep LISTEN
     echo "=============================="
     echo "ipset白名单文件恢复、保存路径: ${ipset_file}"
     echo "iptables防火墙规则文件恢复、保存路径: ${iptables_file}"
