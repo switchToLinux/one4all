@@ -68,6 +68,10 @@ function show_menu2_cuda() {
     menu_item 1 "CUDA12.1.1"
     menu_item 2 "CUDA11.8.0"
     menu_item 3 "CUDA11.3.1"
+    menu_item 4 "CUDA11.2.2"
+    menu_item 5 "CUDA11.2.0"
+    menu_item 6 "CUDA10.2.0"
+    menu_item 7 "CUDA10.1.2"
     menu_tail
     menu_item q 返回上级菜单
     menu_tail
@@ -83,6 +87,10 @@ function download_cuda_toolkit() {
             1) dn_url="https://developer.download.nvidia.com/compute/cuda/12.1.1/local_installers/cuda_12.1.1_530.30.02_linux.run"   ;;
             2) dn_url="https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run"   ;;
             3) dn_url="https://developer.download.nvidia.com/compute/cuda/11.3.1/local_installers/cuda_11.3.1_465.19.01_linux.run"   ;;
+            4) dn_url="https://developer.download.nvidia.com/compute/cuda/11.2.2/local_installers/cuda_11.2.2_460.32.03_linux.run"   ;;
+            5) dn_url="https://developer.download.nvidia.com/compute/cuda/11.2.0/local_installers/cuda_11.2.0_460.27.04_linux.run"   ;;
+            6) dn_url="https://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_440.33.01_linux.run"   ;;
+            7) dn_url="https://developer.download.nvidia.com/compute/cuda/10.1/Prod/local_installers/cuda_10.1.243_418.87.00_linux.run"   ;;
 
             q|"") return 0              ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;

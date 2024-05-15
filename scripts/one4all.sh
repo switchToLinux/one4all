@@ -16,6 +16,9 @@
 
 export ONECFG=~/.config/one4all
 REPO_URL=https://github.com/switchToLinux/one4all
+os_type=""
+pac_cmd=""
+pac_cmd_ins=""
 
 #### 检测当前终端支持色彩
 function check_term() {
@@ -48,7 +51,7 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
                 pac_cmd="zypper"
                 pac_cmd_ins="$pac_cmd install "
                 ;;
-            ubuntu|debian)
+            ubuntu|debian|raspbian)
                 os_type="$ID"
                 pac_cmd="apt-get"
                 pac_cmd_ins="$pac_cmd install -y"
@@ -82,8 +85,7 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
         return 1
     fi
     if [ "$cpu_arch" != "x86_64" ] ; then
-        echo "invalid cpu arch:[$cpu_arch]"
-        return 2
+        loginfo "warning: cpu arch:[$cpu_arch] maybe unstable."
     fi
     return 0
 }
@@ -165,6 +167,9 @@ function start_main(){
 check_term
 menu_head "$WELCOME"
 check_sys       # 检查系统信息
+
+[[ "$os_type" == "" || "$os_type" == "unknown" ]] && exit 0
+
 check_basic     # 基础依赖命令检测与安装
 
 if [ "$#" -ge 0 ]; then  # 无参数情况:进入菜单选择

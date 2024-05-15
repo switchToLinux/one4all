@@ -226,7 +226,7 @@ function install_nodejs() {
 
 function install_golang() {
     loginfo "开始执行 install_golang"
-    command -v go && loginfo "已经安装了 go语言开发环境 :`go version`" && return 0
+    command -v go && loginfo "已经安装了 go语言开发环境 :`go version`"
     prompt "开始安装 go语言开发环境" || return 1
     read -p "设置安装位置(比如 /devel 目录,自动创建子目录go):" str_outpath
     [[ -d "$str_outpath" ]]  || return 2

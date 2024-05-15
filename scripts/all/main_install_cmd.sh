@@ -170,7 +170,7 @@ function install_vim() {
 
 function install_build_dependencies() {
     case "$os_type" in
-    ubuntu|debian)
+    ubuntu|debian|rasp*)
         sudo apt-get install -y ninja-build gettext cmake unzip curl
         ;;
     centos|rhel|almalinux|fedora)
@@ -181,6 +181,9 @@ function install_build_dependencies() {
         ;;
     arch|manjaro)
         sudo pacman -S --needed base-devel cmake unzip ninja curl
+        ;;
+    *)
+        echo "unknown os type: [$ID]"
         ;;
     esac
 }
@@ -213,8 +216,28 @@ function install_neovim() {
     elif [[ -L ~/.config/nvim ]] ; then
         prompt "检测到已经有NeoVIM配置的软链接,是否重新配置NeoVIM" || return 1
     fi
-    loginfo "配置 neovim"  && cp -rf $ONECFG/dotfiles/nvim ~/.config/
+    loginfo "配置 neovim"
+    # required
+    mv ~/.config/nvim{,.bak}
+
+    # optional but recommended
+    mv ~/.local/share/nvim{,.bak}
+    mv ~/.local/state/nvim{,.bak}
+    mv ~/.cache/nvim{,.bak}
+    git clone https://github.com/LazyVim/starter ~/.config/nvim
+
+    loginfo "第一次执行 nvim 时会自动开始安装插件，请耐心等待完成安装"
+
     loginfo "成功执行 install_neovim"
+}
+function config_neovim() {
+    loginfo "正在执行 install_neovim"
+
+    prompt "开始安装NeoVIM" || return 1
+    command -v nvim
+
+    loginfo "成功执行 install_neovim"
+
 }
 function install_yq() {
     loginfo "正在执行 install_yq"
