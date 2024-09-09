@@ -104,7 +104,6 @@ function do_nginx_all() { # 配置菜单选择
             1) vps_config_nginx_install ;;
             2) vps_config_nginx_ipinfo  ;;
             3) vps_install_certbot ;;
-            4)
             q) return 0                 ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
