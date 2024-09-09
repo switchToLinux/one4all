@@ -24,17 +24,6 @@ if [ "$OUTPUTLOG" = "" ] ; then
     OUTPUTLOG="yes"  # 默认输出日志内容到 stdout
 fi
 
-export os_type=""          # Linux操作系统分支类型
-export os_version=""       # Linux系统版本号
-export os_codename=""      # Linux的Codename
-export pac_cmd=""          # 包管理命令
-export pac_cmd_ins=""      # 包管理命令
-export cpu_arch=""         # CPU架构类型，仅支持x86_64
-export gui_type=""         # GUI桌面环境类型
-
-
-curl_cmd="curl -C - "  # 支持断点继续下载
-
 # Define Colors
 RED='\e[41m'
 NC='\e[0m' # No color

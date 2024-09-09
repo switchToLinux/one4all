@@ -13,10 +13,6 @@
 ########## VPS相关  #########################################
 
 function vps_install_deps() {
-    if [[ -z "$pac_cmd_ins" ]]; then
-        echo "Error: pac_cmd_ins is not defined"
-        exit 1
-    fi
     sudo $pac_cmd_ins iptables ipset
 }
 function vps_install_fwctl() {
