@@ -16,9 +16,9 @@
 
 export ONECFG=~/.config/one4all
 REPO_URL=https://github.com/switchToLinux/one4all
-export os_type=""
-export pac_cmd=""
-export pac_cmd_ins=""
+os_type=""
+pac_cmd=""
+pac_cmd_ins=""
 
 #### 检测当前终端支持色彩
 function check_term() {
@@ -158,6 +158,9 @@ check_sys       # 检查系统信息
 [[ "$os_type" == "" || "$os_type" == "unknown" ]] && exit 0
 
 check_basic     # 基础依赖命令检测与安装
+
+######### 传递变量给子脚本 ##########
+export pac_cmd_ins
 
 # 导入基础模块 #
 # 检测 ${ONECFG}/scripts/all/prompt_functions.sh 是否存在,不存在则git下载
