@@ -13,10 +13,13 @@
 ########## VPS相关  #########################################
 
 function vps_install_deps() {
-    sudo $pac_cmd_ins iptables iptables-persistent ipset
+    if [[ -z "$pac_cmd_ins" ]]; then
+        echo "Error: pac_cmd_ins is not defined"
+        exit 1
+    fi
+    sudo $pac_cmd_ins iptables ipset
 }
 function vps_install_fwctl() {
-    vps_install_deps
     sudo cp $ONECFG/scripts/server/fwctl /usr/local/bin/
     [[ "$?" = "0" ]] && echo "验证 fwctl 命令:" && fwctl
 }
@@ -148,7 +151,7 @@ function do_server_all() { # 配置菜单选择
         show_menu_vps
         read -r -n 1 -e  -p "`echo_greenr 请选择:` ${PMT} " str_answer
         case "$str_answer" in
-            1) vps_install_fwctl    ;;
+            1) vps_install_deps ; vps_install_fwctl    ;;
             2) vps_update_timezone  ;;
             3) do_nginx_all         ;;
             4) vps_install_docker   ;;
