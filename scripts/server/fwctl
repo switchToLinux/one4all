@@ -91,9 +91,6 @@ urlencode() {
     }' "$@"
 }
 
-
-
-
 gen_city_ip() {
     # 根据输入省份或者地市名称生成 ipset 规则
     city_name="$1"

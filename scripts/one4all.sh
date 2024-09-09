@@ -74,18 +74,19 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
             ;;
         *)
             gui_type=""
-            [[ "$$XDG_CURRENT_DESKTOP" == "" ]] && logerr "您当前会话类型为[$XDG_SESSION_TYPE] 非图形界面下运行"
-            [[ "$$XDG_CURRENT_DESKTOP" != "" ]] && loginfo "unknown desktop type: $XDG_CURRENT_DESKTOP"
+            [[ "$$XDG_CURRENT_DESKTOP" == "" ]] && echo "您当前会话类型为[$XDG_SESSION_TYPE] 非图形界面下运行"
+            [[ "$$XDG_CURRENT_DESKTOP" != "" ]] && echo "unknown desktop type: $XDG_CURRENT_DESKTOP"
             ;;
     esac
     cpu_arch="`uname -m`"
-    loginfo "${BG}系统${NC}:$os_type $os_version $cpu_arch"
-    loginfo "${BG}桌面${NC}:$gui_type,${BG}包管理命令${NC}:$pac_cmd"
+    echo "Operating System:$os_type $os_version $cpu_arch"
+    echo "Desktop Type:${gui_type:-unknown}"
+    echo "Package Manager:$pac_cmd"
     if [ -z "$pac_cmd" ] ; then
         return 1
     fi
     if [ "$cpu_arch" != "x86_64" ] ; then
-        loginfo "warning: cpu arch:[$cpu_arch] maybe unstable."
+        echo "warning: cpu arch:[$cpu_arch] maybe unstable."
     fi
     return 0
 }
@@ -98,19 +99,6 @@ function check_basic() { # 基础依赖命令检测与安装
     command -v chsh >/dev/null || sudo $pac_cmd_ins util-linux-user   # 检测 chsh 命令(fedora)
 }
 
-# 导入基础模块 #
-# 检测 ${ONECFG}/scripts/all/prompt_functions.sh 是否存在,不存在则git下载
-if [[ ! -f ${ONECFG}/scripts/all/prompt_functions.sh ]] ; then
-    git clone ${REPO_URL} ${ONECFG} || exit 1
-fi
-
-source ${ONECFG}/scripts/all/prompt_functions.sh
-
-# 导入全部功能模块 #
-for fn in `ls ${ONECFG}/scripts/all/main_*.sh` ; do
-    echo "加载 `basename ${fn}` 文件"
-    source ${fn}
-done
 
 function update_repo() {
     [[ ! -d ${ONECFG} ]] && echo "出现错误! ${ONECFG} 目录不能存在！" && return 0
@@ -165,12 +153,27 @@ function start_main(){
 
 ####### Main process #################################
 check_term
-menu_head "$WELCOME"
 check_sys       # 检查系统信息
 
 [[ "$os_type" == "" || "$os_type" == "unknown" ]] && exit 0
 
 check_basic     # 基础依赖命令检测与安装
+
+# 导入基础模块 #
+# 检测 ${ONECFG}/scripts/all/prompt_functions.sh 是否存在,不存在则git下载
+if [[ ! -f ${ONECFG}/scripts/all/prompt_functions.sh ]] ; then
+    git clone ${REPO_URL} ${ONECFG} || exit 1
+fi
+
+source ${ONECFG}/scripts/all/prompt_functions.sh
+
+# 导入全部功能模块 #
+for fn in `ls ${ONECFG}/scripts/all/main_*.sh` ; do
+    echo "加载 `basename ${fn}` 文件"
+    source ${fn}
+done
+
+menu_head "$WELCOME"
 
 if [ "$#" -ge 0 ]; then  # 无参数情况:进入菜单选择
     start_main

@@ -11,7 +11,12 @@
 ######################################################################
 
 ########## VPS相关  #########################################
+
+function vps_install_deps() {
+    sudo $pac_cmd_ins iptables iptables-persistent ipset
+}
 function vps_install_fwctl() {
+    vps_install_deps
     sudo cp $ONECFG/scripts/server/fwctl /usr/local/bin/
     [[ "$?" = "0" ]] && echo "验证 fwctl 命令:" && fwctl
 }
@@ -38,10 +43,52 @@ function vps_config_nginx_ipinfo() {
     nginx -t || return 1
     [[ `systemctl is-active nginx` == "active" ]] && sudo systemctl reload nginx
 }
+function vps_install_certbot() {
+    loginfo "开始安装 certbot"
+    sudo $pac_cmd_ins certbot
+    loginfo "完成安装 certbot"
+}
+function vps_config_https_server() {
+    prompt "开始配置 nginx HTTPS 服务" || return 1
+    read -p "请输入域名(xxx.com 或 xx.example.com):" domain
+    read -p "请输入获取免费HTTPS证书的邮箱:" email
+
+    local nginx_conf_path="/etc/nginx/sites-available/${domain}"
+    local nginx_link_path="/etc/nginx/sites-enabled/${domain}"
+
+    if [ -z "$domain" ] || [ -z "$email" ]; then
+        echo "Usage: vps_config_https_server <domain> <email>"
+        return 1
+    fi
+
+    # 检查是否已安装 Certbot 和 Nginx
+    if ! command -v certbot > /dev/null 2>&1 ; then
+        echo "开始安装 Certbot..."
+        sudo $pac_cmd_ins certbot python3-certbot-nginx
+    fi
+
+    if ! command -v nginx &> /dev/null; then
+        echo "Nginx is not installed. Installing Nginx..."
+        sudo $pac_cmd_ins nginx
+    fi
+    # 使用Certbot获取SSL证书并自动配置Nginx
+    echo "Obtaining SSL certificate for ${domain}..."
+    sudo certbot --nginx -d ${domain} --email ${email} --agree-tos --no-eff-email
+
+    # 设置自动续约
+    echo "Setting up automatic certificate renewal..."
+    sudo systemctl enable certbot.timer
+    sudo systemctl start certbot.timer
+
+    echo "HTTPS configuration for ${domain} completed!"
+}
+
 function show_menu_nginx() {
     menu_head "配置Nginx选项菜单"
     menu_item 1 安装nginx
     menu_item 2 配置IP信息查询功能
+    menu_item 3 安装certbot
+    menu_item 4 配置HTTPS服务
 
     menu_tail
     menu_item q 返回上级菜单
@@ -56,6 +103,8 @@ function do_nginx_all() { # 配置菜单选择
         case "$str_answer" in
             1) vps_config_nginx_install ;;
             2) vps_config_nginx_ipinfo  ;;
+            3) vps_install_certbot ;;
+            4)
             q) return 0                 ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
