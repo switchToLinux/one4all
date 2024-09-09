@@ -16,9 +16,9 @@
 
 export ONECFG=~/.config/one4all
 REPO_URL=https://github.com/switchToLinux/one4all
-os_type=""
-pac_cmd=""
-pac_cmd_ins=""
+export os_type=""
+export pac_cmd=""
+export pac_cmd_ins=""
 
 #### 检测当前终端支持色彩
 function check_term() {
