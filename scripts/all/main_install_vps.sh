@@ -44,7 +44,7 @@ function vps_config_nginx_ipinfo() {
 }
 function vps_install_certbot() {
     loginfo "开始安装 certbot"
-    sudo $pac_cmd_ins certbot
+    sudo $pac_cmd_ins certbot python3-certbot-nginx
     loginfo "完成安装 certbot"
 }
 function vps_config_https_server() {

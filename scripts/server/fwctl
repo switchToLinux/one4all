@@ -63,86 +63,35 @@ green() {
     printf "\033[0;32;7m $@ \033[0m"
 }
 
-gen_cn_ip() {
-    # 生成默认的全国过IP段 ipset 白名单规则
-    echo "create whitelist hash:net family inet hashsize 1024 maxelem 65536" > ${ipset_new}
-    init_wlist
-    # cn_url="https://bgp.space/china.html"
-    cn_url="https://asn.bgp.space/china.html"
-    curl ${cn_url} 2>/dev/null | awk '/^[1-9]/{ gsub("<br>",""); print "add whitelist "$0 }' >> ${ipset_new}
-}
-
-urlencode() {
-  LC_ALL=C awk -- '
-    BEGIN {
-      for (i = 1; i <= 255; i++) hex[sprintf("%c", i)] = sprintf("%%%02X", i)
-    }
-    function urlencode(s,  c,i,r,l) {
-      l = length(s)
-      for (i = 1; i <= l; i++) {
-        c = substr(s, i, 1)
-        r = r "" (c ~ /^[:\/\-._~0-9a-zA-Z]$/ ? c : hex[c])
-      }
-      return r
-    }
-    BEGIN {
-      for (i = 1; i < ARGC; i++)
-        print urlencode(ARGV[i])
-    }' "$@"
-}
-
-gen_city_ip() {
-    # 根据输入省份或者地市名称生成 ipset 规则
-    city_name="$1"
-    base_url="https://raw.githubusercontent.com/Awkee/china-ip-list/main"
-    iplist_url="${base_url}/ip.list"
-    tmp_file=".tmp.list"
-    curl -L ${iplist_url} 2>/dev/null | grep "$city_name" > $tmp_file
-    if [ ! -z "$tmp_file" ] ; then
-        # 找到匹配地区IP段文件
-        echo "create blacklist hash:net family inet hashsize 1024 maxelem 65536" > ${ipset_new}
-        echo "create whitelist hash:net family inet hashsize 1024 maxelem 65536" >> ${ipset_new}
-
-        init_blist
-        init_wlist
-
-        read -p "输入您的网络运营商名称[联通, 电信, 移动, 铁通, 科技网, 广电, 教育网, 方正宽带](回车选择默认:全部):" str_isp
-        cat $tmp_file | while read fn
-        do
-            fname=`urlencode "${base_url}/${fn}"`
-
-            # 按运营商过滤IP段
-            echo "下载文件[${fn}]"
-            if [ "$str_isp" != "" ] ; then
-                echo "过滤ISP运营商: [$str_isp]"
-                curl -L ${fname} 2>/dev/null | grep "$str_isp" | awk '{printf("add whitelist %s\n", $1);}' >> ${ipset_new}
-            else
-                curl -L ${fname} 2>/dev/null | awk '{ printf("add whitelist %s\n", $1);}' >> ${ipset_new}
-            fi
-        done
-    else
-        read -p "没找到您输入的地区 [$city_name]! 使用国内所有IP段(Ctrl+C表示`green 取消`,回车键`green 继续`)." str_answer
-        gen_cn_ip
-    fi
-    # 保留黑名单列表
-    ipset save blacklist >> ${ipset_new}
-    echo "当前ipset条数: `wc -l ${ipset_new}`"
-
-    rm -f $tmp_file
-}
-
 change_city_ip() {
-    read -p "输入希望添加的IP段省份名称(默认:全国):" str_prov
-    if [ "$str_prov" = "" -o "$str_prov" = "全国" -o "$str_prov" = "国内" ] ; then
-        gen_cn_ip
-    else
-        # 单独省份或地市IP段
-        gen_city_ip $str_prov
-    fi
+    while true ; do
+        read -p "输入希望添加的IP段省份名称(回车默认:全国):" str_prov
+        if [ "$str_prov" = "" -o "$str_prov" = "全国" -o "$str_prov" = "国内" ] ; then
+            str_prov="中国"
+        fi
+        ip_url=$(curl -L https://raw.githubusercontent.com/metowolf/iplist/master/docs/cncity.md 2>/dev/null | awk -F '|' '$2~/吉林省/{ print $3 }')
+        if [ "$?" != "0" ] ; then
+            echo "没找到输入地区IP数据!请换个省份或地区试试!"
+        else
+            break
+        fi
+    done
+    tmp_file="/tmp/iplist.txt"
+    curl -L $ip_url -o $tmp_file
     if [ "$?" != "0" ] ; then
-        echo "添加失败:快看看哪里执行错误了吧"
-        exit 0
+        echo "ERROR: 获取IP数据失败! "
+        return 1
     fi
+    echo "地区:${str_prov} , IP段数量: $(wc -l $tmp_file)"
+    rm -f ${ipset_new}
+    init_wlist
+    init_blist
+    cat $tmp_file  | awk '{printf("add whitelist %s\n", $1);}' >> ${ipset_new}
+    # 保留黑名单列表
+    ipset save blacklist | grep -v create >> ${ipset_new}
+    ipset -! restore < ${ipset_new}
+    rm -f ${tmp_file} ${ipset_new}
+    echo "IP黑白名单配置完成"
 }
 
 firewall_init() {
