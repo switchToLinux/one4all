@@ -17,15 +17,15 @@ ip6tables_file=/etc/ip6tables_fwctl
 
 init_wlist() {
     echo "初始化 whitelist 黑名单:"
-    ipset -! destroy whitelist
-    ipset create whitelist hash:net family inet hashsize 1024 maxelem 65536
+    sudo ipset -! destroy whitelist
+    sudo ipset create whitelist hash:net family inet hashsize 1024 maxelem 65536
     ipset create whitelist hash:net family inet hashsize 1024 maxelem 65536 >> ${ipset_new}
 }
 
 init_blist() {
     echo "初始化blacklist黑名单:"
-    ipset -! destroy blacklist
-    ipset create blacklist hash:net family inet hashsize 1024 maxelem 65536
+    sudo ipset -! destroy blacklist
+    sudo ipset create blacklist hash:net family inet hashsize 1024 maxelem 65536
     ipset create blacklist hash:net family inet hashsize 1024 maxelem 65536 >> ${ipset_new}
 }
 
@@ -54,23 +54,23 @@ change_city_ip() {
     init_blist
     cat $tmp_file  | awk '{printf("add whitelist %s\n", $1);}' >> ${ipset_new}
     # 保留黑名单列表
-    ipset save blacklist | grep -v create >> ${ipset_new}
-    ipset -! restore < ${ipset_new}
+    sudo ipset save blacklist | grep -v create >> ${ipset_new}
+    sudo ipset -! restore < ${ipset_new}
     rm -f ${tmp_file} ${ipset_new}
     echo "IP黑白名单配置完成"
 }
 
 firewall_status() {
     echo "白名单IP列表规则:"
-    ipset list whitelist
+    sudo ipset list whitelist
     echo "=============================="
     echo "黑名单IP列表规则:"
-    ipset list blacklist
+    sudo ipset list blacklist
     echo "=============================="
     echo "防火墙IPv4规则:"
-    iptables -S
+    sudo iptables -S
     echo "防火墙IPv6规则:"
-    ip6tables -S
+    sudo ip6tables -S
     echo "=============================="
     echo "ipset   文件路径: ${ipset_file}"
     echo "iptables文件路径: ${iptables_file}"
@@ -81,8 +81,8 @@ firewall_status() {
 firewall_backup() {
     # 导出防火墙配置规则
     echo "备份 ipset 列表"
-    ipset save whitelist > ${ipset_file}.`date +%Y%m%d`
-    ipset save blacklist >> ${ipset_file}.`date +%Y%m%d`
+    sudo ipset save whitelist > ${ipset_file}.`date +%Y%m%d`
+    sudo ipset save blacklist >> ${ipset_file}.`date +%Y%m%d`
 
     # 导出iptables规则
     echo "备份 iptables 规则"
@@ -100,8 +100,8 @@ firewall_backup() {
 firewall_save() {
     # 导出防火墙配置规则
     echo "备份 ipset 列表"
-    ipset save whitelist > $ipset_file
-    ipset save blacklist >> $ipset_file
+    sudo ipset save whitelist > $ipset_file
+    sudo ipset save blacklist >> $ipset_file
 
     # 导出iptables规则
     echo "备份 iptables 规则"
@@ -119,7 +119,7 @@ firewall_save() {
 firewall_restore() {
     # 恢复防火墙配置规则
     echo "恢复 ipset 列表"
-    ipset -! restore < $ipset_file
+    sudo ipset -! restore < $ipset_file
 
     echo "恢复 iptables 防火墙规则"
     iptables-restore $iptables_file
@@ -131,7 +131,7 @@ firewall_init() {
     # 初始化防火墙配置规则
     firewall_status
     read -p "确定初始化防火墙规则?(回车继续,Ctrl+C取消)" str_answer
-    iptables -F
+    sudo iptables -F
     
     echo "开始初始化ipset,添加国内IP段!"
     change_city_ip
@@ -155,26 +155,26 @@ firewall_init() {
 
     echo "配置 iptables 防火墙规则:"
     # 允许服务器本机对外访问:允许内部向外发消息
-    iptables -I OUTPUT -j ACCEPT
+    sudo iptables -I OUTPUT -j ACCEPT
     # 接收内部地址消息
-    iptables -A INPUT -s 127.0.0.1 -j ACCEPT
+    sudo iptables -A INPUT -s 127.0.0.1 -j ACCEPT
 
     # 丢弃所有黑名单列表请求数据包
-    iptables -A INPUT -m set --match-set blacklist src -p udp -j DROP
-    iptables -A INPUT -m set --match-set blacklist src -p tcp -j DROP
+    sudo iptables -A INPUT -m set --match-set blacklist src -p udp -j DROP
+    sudo iptables -A INPUT -m set --match-set blacklist src -p tcp -j DROP
 
     # 放行已建立连接的相关数据
-    iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+    sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
     # 开放端口列表示例(一次添加多个端口)
-    iptables -A INPUT -p tcp -m multiport --dports 22,443 -j ACCEPT
+    sudo iptables -A INPUT -p tcp -m multiport --dports 22,443 -j ACCEPT
     # 开放白名单可访问的端口示例
-    iptables -A INPUT -p tcp -m set --match-set whitelist src -m multiport --dports 80,443 -j ACCEPT
+    sudo iptables -A INPUT -p tcp -m set --match-set whitelist src -m multiport --dports 80,443 -j ACCEPT
 
     # 丢弃所有ICMP协议(不让ping)
-    iptables -A FORWARD -p icmp -j DROP
+    sudo iptables -A FORWARD -p icmp -j DROP
     # 保底规则:丢弃所有(不需要)的请求数据
-    iptables -A INPUT -j DROP
+    sudo iptables -A INPUT -j DROP
     
     echo "完成防火墙初始化配置"
     firewall_save
@@ -183,47 +183,47 @@ firewall_init() {
 open_port() {
     # 开放TCP端口(任何用户都可以访问，常用于开放HTTP/HTTPS服务)
     port=$1
-    iptables -I INPUT -p tcp --dport ${port} -j ACCEPT
+    sudo iptables -I INPUT -p tcp --dport ${port} -j ACCEPT
 }
 
 close_port() {
     # 关闭TCP端口(不再允许用户访问)，针对 open_port添加规则
-    iptables -S| grep "dport ${port} "| awk '{ gsub("-A", "-D"); print "iptables "$0 }' | bash
+    sudo iptables -S| grep "dport ${port} "| awk '{ gsub("-A", "-D"); print "iptables "$0 }' | bash
 }
 
 add_port() {
     port=$1
-    iptables -I INPUT -m set --match-set whitelist src -p tcp --dport ${port} -j ACCEPT
+    sudo iptables -I INPUT -m set --match-set whitelist src -p tcp --dport ${port} -j ACCEPT
 }
 
 add_ip() {
     white_ip=$1
-    iptables -I INPUT -s ${white_ip} -j ACCEPT
+    sudo iptables -I INPUT -s ${white_ip} -j ACCEPT
 }
 
 del_port() {
     port=$1
-    iptables -S| grep "dport ${port} "| awk '{ gsub("-A", "-D"); print "iptables "$0 }' | bash
+    sudo iptables -S| grep "dport ${port} "| awk '{ gsub("-A", "-D"); print "iptables "$0 }' | bash
 }
 
 add_wip() {
     aip="$1"
-    ipset add whitelist $aip
+    sudo ipset add whitelist $aip
 }
 
 del_wip() {
     aip="$1"
-    ipset del whitelist $aip
+    sudo ipset del whitelist $aip
 }
 
 add_bip() {
     aip="$1"
-    ipset add blacklist $aip
+    sudo ipset add blacklist $aip
 }
 
 del_bip() {
     aip="$1"
-    ipset del blacklist $aip
+    sudo ipset del blacklist $aip
 }
 
 # 主菜单显示 #
@@ -260,7 +260,9 @@ function do_firewall_all(){
             7) add_wip           ;;
             8) add_port          ;;
 
-            q|"") return 0         ;;  # 返回上级菜单
+            menu_tail
+            i) firewall_init     ;;
+            q|"") return 0       ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac
     done

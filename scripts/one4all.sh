@@ -125,6 +125,7 @@ function show_menu_main() {
     menu_item g 安装显卡相关
     menu_tail
 
+    menu_item f 防火墙配置
     menu_item v 服务器配置
     menu_tail
 
@@ -147,6 +148,7 @@ function start_main(){
             d) do_desktop_all   ;;  # 桌面环境配置工作(主题/图标等)
             g) do_graphics_all  ;;  # 显卡相关安装配置
 
+            f) do_firewall_all  ;;  # 防火墙配置
             v) do_server_all    ;;  # 服务器配置
             u)
                 update_repo
