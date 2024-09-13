@@ -260,7 +260,6 @@ function do_firewall_all(){
             7) add_wip           ;;
             8) add_port          ;;
 
-            menu_tail
             i) firewall_init     ;;
             q|"") return 0       ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
