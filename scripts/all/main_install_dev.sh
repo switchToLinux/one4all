@@ -192,8 +192,7 @@ function install_logstash() {
 function install_nodejs() {
     nodejs_type="${1:-LTS}"   # nodejs 类型 LTS 或 latest最新版
     loginfo "正在执行 install_nodejs"
-    command -v node && loginfo "已经安装了 nodejs 环境 :`node -v`" && read -p "是否重新安装(y/n)?" str_choice
-    [[ "$str_choice" != "y" && "$str_choice" != "Y" ]] && return 0
+    command -v node && loginfo "已经安装了 nodejs 环境 :`node -v`" read -p "是否重新安装(y/n)?" str_choice  && [[ "$str_choice" != "y" && "$str_choice" != "Y" ]] && return 0
     prompt "开始安装 nodejs环境" || return 1
     read -p "设置安装位置(比如 /devel 目录,自动创建子目录nodejs):" str_outpath
     [[ -d "$str_outpath" ]]  || return 2
