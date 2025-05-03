@@ -194,7 +194,7 @@ function install_nodejs() {
     loginfo "正在执行 install_nodejs"
     command -v node && loginfo "已经安装了 nodejs 环境 :`node -v`" read -p "是否重新安装(y/n)?" str_choice  && [[ "$str_choice" != "y" && "$str_choice" != "Y" ]] && return 0
     prompt "开始安装 nodejs环境" || return 1
-    read -p "设置安装位置(比如 /devel 目录,自动创建子目录nodejs):" str_outpath
+    read -p "设置安装位置(比如 /devel/nodejs 目录):" str_outpath
     [[ -d "$str_outpath" ]]  || return 2
 
     read -p "选择安装版本(16-23/latest,回车默认latest)" nodejs_ver
