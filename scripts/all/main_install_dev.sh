@@ -192,22 +192,24 @@ function install_logstash() {
 function install_nodejs() {
     nodejs_type="${1:-LTS}"   # nodejs 类型 LTS 或 latest最新版
     loginfo "正在执行 install_nodejs"
-    command -v node && loginfo "已经安装了 nodejs 环境 :`node -v`" && return 0
+    command -v node && loginfo "已经安装了 nodejs 环境 :`node -v`" && read -p "是否重新安装(y/n)?" str_choice
+    [[ "$str_choice" != "y" && "$str_choice" != "Y" ]] && return 0
     prompt "开始安装 nodejs环境" || return 1
     read -p "设置安装位置(比如 /devel 目录,自动创建子目录nodejs):" str_outpath
     [[ -d "$str_outpath" ]]  || return 2
 
-    read -p "选择安装版本(16/18/20/latest,回车默认latest)" nodejs_ver
+    read -p "选择安装版本(16-23/latest,回车默认latest)" nodejs_ver
     ver_url="https://nodejs.org/download/release/latest-v${nodejs_ver}.x/"
     [[ "$nodejs_ver" == "" || "$nodejs_ver" == "latest" ]] && ver_url="https://nodejs.org/download/release/latest"
-    [[ "$nodejs_ver" == "" || "$nodejs_ver" == "latest" ]] || [[ "$nodejs_ver" -gt "0" || "$nodejs_ver" -lt "100" ]] || return 3
     tarfile=`${curl_cmd} -L $ver_url  | grep "linux-x64.tar.xz"|awk -F"href=\"" '{ print $2 }' | awk -F"\"" '{print $1}'`
     [[ "$tarfile" == "" ]] && loginfo "没找到 v${nodejs_ver} 版本 nodejs" && return 3
 
-    dn_url="$ver_url/$tarfile"
+    dn_url="https://nodejs.org/$tarfile"
+    loginfo "dn_url: $dn_url"
     tmp_path=/tmp
-    outfile="`echo $tarfile | sed 's/.tar.xz//g'`"
-    tmp_file="$tmp_path/$tarfile"
+    dn_filename=$(basename $tarfile)
+    outfile="`echo $dn_filename | sed 's/.tar.xz//g'`"
+    tmp_file="$tmp_path/$dn_filename"
     ${curl_cmd} -o $tmp_file -L $dn_url || return 1
     tar axvf $tmp_file -C ${str_outpath}
     # 创建软链接

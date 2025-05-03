@@ -240,7 +240,6 @@ function show_menu_firewall() {
     menu_tail
 
     menu_item i 防火墙初始化
-    menu_item u "${TC}U${NC}pdate更新"
     menu_item q 退出
     menu_tail
 }
