@@ -26,6 +26,7 @@ fi
 
 # Define Colors
 RED='\e[41m'
+BRB='\e[1;7;31;47m' # Blink Red bold
 NC='\e[0m' # No color
 BG='\e[7m' # Highlighting Background color
 TC='\e[1m' # Highlighting Text color
@@ -44,23 +45,49 @@ function redr_line()   { printf "\033[0;31;7m$@\033[0m\n" ; }
 function green_line()  { printf "\033[0;32;1m$@\033[0m\n" ; }
 function greenr_line() { printf "\033[0;32;7m$@\033[0m\n" ; }
 
-line_feed="+------------------------------------------------------------+"
-
-item_index=0   # 记录菜单选项序号
+item_index=0        # 记录菜单选项序号
 item_line_count=2   # 每行显示菜单数量
-ILEN=30   # 单个选项长度
-MLEN=$((${ILEN} * ${item_line_count}))   # 单行最大长度
+ILEN=30             # 单个选项长度
+MLEN=$(( (${ILEN}+1) * ${item_line_count}))   # 单行最大长度
+print_feed() {
+    for i in $(seq 1 $item_line_count) ; do
+        printf "+%${ILEN}s" | tr ' ' '-'
+    done
+    printf "+\n"
+}
 
+function menu_line() { echo -en "|  ${BRB} $@ $NC" ; tput hpa $MLEN ; echo "|" ; }
+# 居中显示菜单选项
+# 函数：center_line
+# 用途：居中对齐文本，输出带边框的菜单行
+# 参数：
+#   $1：要显示的文本
+#   $2：可选，指定总宽度（默认使用终端宽度）
+function center_line() {
+  local text="$1"
+  local width="${2:-$MLEN}"  # 默认使用终端宽度
 
-function menu_line() { let rlen="$item_line_count * $ILEN + 1" ; echo -en "|$TC $@ $NC" ; tput hpa $rlen ; echo "|" ; }
-function menu_head() { echo $line_feed ;   menu_line "$@" ; echo $line_feed ; }
+  # 移除 ANSI 颜色代码以计算纯文本长度
+  local plain_text
+  plain_text=$(echo -n "$text" | sed 's/\x1B\[[0-9;]*[JKmsu]//g')
+  local text_len=${#plain_text}
+
+  # 计算左右填充空格
+  local total_padding=$((width - text_len))
+  local left_padding=$((total_padding / 2))
+  local right_padding=$((total_padding - left_padding))
+
+  # 构建输出：| + 左空格 + 文本 + 右空格 + |
+  printf "| %*s${BRB}%s${NC}" "$left_padding" "" "$text" ; tput hpa $width ; printf "|\n"
+}
+function menu_head() { print_feed;   center_line "$@" ; }
 # 一行可以有 item_line_count 个菜单选项
-function menu_item() { let item_index=$item_index+1 ; n=$1 ; shift ; let rlen="$item_index * $ILEN + 1" ; echo -en "|  $BG ${n} $NC $@" ; tput hpa $rlen ; [[ "$item_index" == "$item_line_count" ]] && echo "|" && item_index=0 ; }
+function menu_item() { let item_index=$item_index+1 ; n=$1 ; shift ; let rlen="$item_index * ($ILEN + 1)" ; echo -en "|  $BG ${n} $NC $@" ; tput hpa $rlen ; [[ "$item_index" == "$item_line_count" ]] && echo "|" && item_index=0 ; }
 # 输出单行长菜单选项,长度有限制
-function menu_iteml() { let rlen="$item_line_count * $ILEN + 1" ; n=$1 ; shift ; echo -en "|  $BG ${n} $NC $@" ; tput hpa $rlen ; echo "|" ; }
+function menu_iteml() { n=$1 ; shift ; echo -en "|  $BG ${n} $NC $@" ; tput hpa $MLEN ; echo "|" ; }
 # 用于输入长信息(非菜单选项),不限制结尾长度
 function menu_info() { n=$1 ; shift ; echo -e "|  $BG ${n} $NC $@" ; }
-function menu_tail() { [[ "$item_index" != "0" ]] && echo "|" ; echo $line_feed ; item_index=0 ; }
+function menu_tail() { [[ "$item_index" != "0" ]] && echo "|" ; print_feed; item_index=0 ; }
 
 # 日志记录
 log_file="/tmp/one4all.log"
@@ -69,25 +96,40 @@ function output_log() { if [ "$OUTPUTLOG" = "yes" ] ; then  output_msg $@ | tee 
 function loginfo() { output_log "INFO" $@  ; }
 function logerr()  { output_log "ERROR" $@ ; }
 
+#### 检测当前终端支持色彩
+function check_term() {
+	# 指定 TERM ，避免对齐问题(已知某些rxvt-unicode终端版本存在对齐问题)
+    if [[ "`tput colors`" -ge "256" ]] ; then
+        menu_iteml "支持 256color TERM终端"
+    else
+        export TERM=xterm
+        export COLORTERM=truecolor
+    fi
+    menu_iteml "当前终端类型: $TERM"
+    menu_iteml "当前终端色彩: $COLORTERM"
+}
+
 ################################################################
 #  文本信息设定
 
 # 欢迎和再见提示信息
-WELCOME="^_^你笑起来真好看!像春天的花一样!"
-SEE_YOU="^_^出去晒晒太阳吧!多运动才更健康!"
+WELCOME="^_^ Welcome! Have a good day!"
+SEE_YOU="^_^ Bye! Do not have a good day! Have a great day!"
 
+READ_TIMEOUT=30   # read timeout seconds
 
 ########### 运行条件检测 ###########
-function prompt() { # 提示确认函数，如果使用 -y 参数默认为Y确认
+# 提示确认函数，如果使用 -y 参数默认为Y确认
+function prompt() {
     msg="$@"
     if [ "$default_confirm" != "yes" ] ; then
-        read -r -n 1 -e  -p "$msg (y/`echo_greenr N`)" str_answer
+        read -t $READ_TIMEOUT -r -n 1 -e  -p "$msg (y/`echo_greenr N`)" str_answer
         case "$str_answer" in
             y*|Y*)  echo "已确认" ; return 0 ;;
             *)      echo "已取消" ; return 1 ;;
         esac
     else
-        echo "$msg"
+        echo "$msg (已默认选择 Yes)"
     fi
     return 0
 }
@@ -158,10 +200,10 @@ function service_is_enabled() { service_name="$1" ; systemctl is-enabled $servic
 function service_enable_start() {
     service_name="$1"
     loginfo "正在执行 service_enable_start,参数[$@]"
-    current_status=`service_is_active $service_name`
-    [[ "$?" != "0" ]] && logerr "服务 $service_name 状态查看错误!" && return 1
-    [[ "$current_status" = "active" ]] && loginfo "当前 $service_name 服务状态: $current_status , 已经启动激活过了,不用重复启动了" && return 0
-    
+    # current_status=`service_is_active $service_name`
+    # [[ "$?" != "0" ]] && logerr "服务 $service_name 状态查看错误!" && return 1
+    # [[ "$current_status" = "active" ]] && loginfo "当前 $service_name 服务状态: $current_status , 已经启动激活过了,不用重复启动了" && return 0
+
     sudo systemctl enable --now $service_name
     loginfo "启动 $service_name 服务: ${BG} `service_is_active $service_name` ${NC}"
     systemctl status $service_name

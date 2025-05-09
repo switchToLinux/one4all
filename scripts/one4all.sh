@@ -203,3 +203,4 @@ else  # 命令执行模式(执行后退出)
 fi
 
 menu_head "${SEE_YOU}"
+print_feed
