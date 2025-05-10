@@ -135,15 +135,7 @@ function config_source() { # 配置软件源为国内源(清华大学源速度�
         kali)
             sudo sed -i "s@http://http.kali.org/kali@https://mirrors.tuna.tsinghua.edu.cn/kali@g" /etc/apt/sources.list
             ;;
-        manjaro)
-            # 自动测试并选择延迟最低的镜像源地址(通过-c参数选择国家)
-            # sudo pacman-mirrors -g -c China
-            # 手动根据提示选择镜像源地址
-            sudo pacman-mirrors -i -c China -m rank
-            # 更新软件源本地缓存
-            sudo pacman -Syyu
-            ;;
-        arch)
+        arch|manjaro)
             mirror_file="/etc/pacman.d/mirrorlist"
             sudo cp $mirror_file ${mirror_file}.bak
             sudo sh -c 'echo "Server = https://mirrors.tuna.tsinghua.edu.cn/archlinux/\$repo/os/\$arch" > $mirror_file'
@@ -204,31 +196,7 @@ function config_user() {  # 添加管理员用户
 function config_sudo_nopass() { # 为当前用户配置使用 sudo时不需要输入密码
     grep "NOPASSWD" /etc/sudoers.d/$USER >/dev/null 2>&1 || sudo sh -c "echo '$USER ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/$USER"
 }
-function config_machine_id() {  # 生成 machine_id 唯一信息(从模板克隆主机时会有相同id情况，导致网络分配识别等问题)
-    loginfo "正在执行 config_machine_id"
-    prompt "确定重新生成 machine_id(`echo_redr 会影响购买激活的软件`)" || return 1
-    white_line "开始生成新的 machine_id :"
-    id_file=/etc/machine-id
-    loginfo "记录上一次的 machine-id : `cat $id_file`"
-    sudo rm -f $id_file
-    sudo dbus-uuidgen --ensure=$id_file
-    echo "生成 machine_id: `cat $id_file`"
-    loginfo "成功执行 config_machine_id, 新的machine-id : `cat $id_file`"
-}
-function config_hostid() { # 生成 hostid 唯一信息(根据网卡ip生成)
-    loginfo "正在执行 config_hostid, 当前 hostid=`hostid`"
-    myipv4=`ip a s | awk '/inet / && /global/{ print $2 }'|sed 's/\/.*//g'`
-    prompt "请确认是否重新生成hostid" || return 1
-    echo -e "当前全局的IPv4地址: ${BG}${myipv4}${NC} ,开始生成 /etc/hostid"
-    ip1=`echo ${myipv4} | cut -d. -f1 | xargs printf "%x"`
-    ip2=`echo ${myipv4} | cut -d. -f2 | xargs printf "%x"`
-    ip3=`echo ${myipv4} | cut -d. -f3 | xargs printf "%x"`
-    ip4=`echo ${myipv4} | cut -d. -f4 | xargs printf "%x"`
-    # 注意hostid写入的顺序
-    sudo sh -c "printf '\x${ip3}\x${ip4}\x${ip1}\x${ip2}' > /etc/hostid"
-    echo -e "生成后的hostid : $TC`hostid`$NC"
-    loginfo "成功执行 config_hostid, 新hostid=$TC`hostid`$NC"
-}
+
 
 function config_powerline_fonts() {
     loginfo "开始安装 Powerline Font"
@@ -239,17 +207,15 @@ function config_powerline_fonts() {
 }
 
 function show_menu_config() { # 显示 config 子菜单
-    menu_head "配置选项菜单"
-    menu_item 1 支持zh_CN.utf-8     # ":支持中文字符集 zh_CN.UTF-8"
-    menu_item 2 软件源              # ":更改软件源为国内源(默认清华大学源,支持ipv6且速度快)"
+    menu_head "Menu 选项菜单"
+    menu_item 1 enable zh_CN.utf-8
+    menu_item 2 更改清华软件源              # ":更改软件源为国内源(默认清华大学源,支持ipv6且速度快)"
     menu_item 3 启动sshd服务
     menu_item 4 创建用户
-    menu_item 5 生成hostid
-    menu_item 6 生成machineid
-    menu_item 7 配置PowerlineFonts
-    menu_item 8 配置sudo无密码确认
+    menu_item 5 配置sudo无密码确认
+    menu_item 6 安装Powerline字体
     menu_tail
-    menu_item q 返回上级菜单
+    menu_item q Quit 返回
     menu_tail
 }
 
@@ -263,10 +229,8 @@ function do_config_all() { # 配置菜单选择
             2) config_source        ;;
             3) config_sshd          ;;
             4) config_user          ;;
-            5) config_hostid        ;;
-            6) config_machine_id    ;;
-            7) config_powerline_fonts ;;
-            8) config_sudo_nopass   ;;
+            5) config_sudo_nopass   ;;
+            6) config_powerline_fonts ;;
             q|"") return 0          ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac

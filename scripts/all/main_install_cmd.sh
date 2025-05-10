@@ -4,7 +4,7 @@
 # 文件名: main_install_cmd.sh
 # 作者: Awkee
 # 创建时间: 2023-07-20
-# 描述: 安装应用脚本
+# 描述: 安装命令行相关工具脚本
 # 备注: 
 #   - 此脚本安装的应用为命令行工具
 #   - 
@@ -12,60 +12,6 @@
 
 ############# 安装工具部分 #########################################
 
-function install_anaconda() {
-    loginfo "正在执行 install_anaconda 开始下载安装Anaconda3环境."
-    prompt "开始安装 Anaconda3" || return 1
-    conda -V && loginfo "Anaconda3已经安装过了!" && return 1
-    tmp_file=/tmp/.anaconda.html
-    ${curl_cmd} -o $tmp_file -sSL https://repo.anaconda.com/archive/
-    [[ "$?" != "0" ]]  && loginfo "你的网络有问题!无法访问Anaconda网站" && return 1
-
-    anaconda_file=`awk -F'\"' '/Linux-x86_64.sh/{print $2}' $tmp_file |head -1`
-    anaconda_size=`grep -A2 'Linux-x86_64.sh' $tmp_file |sed -n 's/\W*<td[^>]*>//g;s/<\/td>//g;2p'`
-    anaconda_date=`grep -A3 'Linux-x86_64.sh' $tmp_file |sed -n 's/\W*<td[^>]*>//g;s/<\/td>//g;3p'`
-    loginfo "url: $anaconda_file ,size: $anaconda_size ,date: $anaconda_date"
-    if [ -f "/tmp/$anaconda_file" ] ; then
-        echo -en "${RED}提醒：文件已经下载过了!${NC}"
-    fi
-    prompt "下载Anaconda3安装包(文件预计 $anaconda_size, date:$anaconda_date)"
-    # origin url example https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Linux-x86_64.sh
-    dn_url="https://mirrors.tuna.tsinghua.edu.cn/anaconda/archive/$anaconda_file"
-    default_dn_url="https://repo.anaconda.com/archive/$anaconda_file"
-    
-    prompt "是否使用国内安装源(国内主机推荐选择是):"
-    [[ "$?" == "0" ]] && dn_url="$default_dn_url"
-
-    ${curl_cmd} -o /tmp/$anaconda_file -L $dn_url
-    [[ "$?" != "0" ]] && echo "下载 Anaconda3 安装包失败!稍后再试试" && return 2
-
-    default_python_install_path="$HOME/anaconda3"       # Python3 默认安装路径
-    echo "开始安装 Anaconda3..."
-    prompt "使用默认安装目录 ${default_python_install_path}:"
-    if [ "$?" != "0" ] ; then
-        read -p "请输入自定义安装目录:" python_install_path
-    else
-        python_install_path=$default_python_install_path
-    fi
-    if [ "$python_install_path" != "" -a  ! -d "$python_install_path" ] ; then
-        loginfo "安装路径 $python_install_path 检查正常!"
-    else
-        [[ -d "$python_install_path" ]] && logerr "目录 $python_install_path 已经存在,确保目录不存在以免错误设置覆盖数据!" && return 2
-        loginfo "无效目录[$python_install_path],请重新选择有效安装路径。"
-        return 3
-    fi
-    # 安装前检查磁盘空间
-    reserve_size="8196" # 8GB预留
-    disk_check_usage `dirname ${python_install_path}` $reserve_size
-    [[ "$?" != "0" ]] && return 4
-
-    sh /tmp/$anaconda_file -p ${python_install_path} -b
-    . ${python_install_path}/etc/profile.d/conda.sh
-    # 检测当前使用的shell是什么bash/zsh等
-    loginfo "检测到当前正在使用 `basename $SHELL` Shell环境,为您自动添加Anaconda3的配置信息"
-    conda init `basename $SHELL`
-    loginfo "Anaconda3 安装完成! 当前默认Python版本为: `${python_install_path}/bin/python3 --version`"
-    loginfo "成功执行 install_anaconda ."
-}
 function install_ohmyzsh() {
     loginfo "正在执行 install_ohmyzsh"
     prompt "开始安装 ohmyzsh" || return 1
@@ -167,7 +113,6 @@ function install_vim() {
     fi
     install_ctags
 }
-
 function install_build_dependencies() {
     case "$os_type" in
     ubuntu|debian|rasp*)
@@ -230,15 +175,6 @@ function install_neovim() {
 
     loginfo "成功执行 install_neovim"
 }
-function config_neovim() {
-    loginfo "正在执行 install_neovim"
-
-    prompt "开始安装NeoVIM" || return 1
-    command -v nvim
-
-    loginfo "成功执行 install_neovim"
-
-}
 function install_yq() {
     loginfo "正在执行 install_yq"
     command -v yq && loginfo "已经安装过 yq 工具了!" && return 0
@@ -263,16 +199,15 @@ function install_jq() {
 }
 
 function show_menu_install() {
-    menu_head "安装选项菜单"
-    menu_item 1 Anaconda3
-    menu_item 2 ohmyzsh
+    menu_head "Menu 选项菜单"
+    menu_item 1 ohmyzsh
+    menu_item 2 jq
     menu_item 3 tmux
     menu_item 4 vim/neovim
     menu_item 5 frpc/frps
     menu_item 6 yq
-    menu_item 7 jq
     menu_tail
-    menu_item q 返回上级菜单
+    menu_item q Quit 返回
     menu_tail
 }
 function do_install_all() { # 安装菜单选择
@@ -281,13 +216,12 @@ function do_install_all() { # 安装菜单选择
         show_menu_install
         read -r -n 1 -e  -p "`echo_greenr 请选择:` ${PMT} " str_answer
         case "$str_answer" in
-            1) install_anaconda     ;;
-            2) install_ohmyzsh      ;;
+            1) install_ohmyzsh      ;;
+            2) install_jq           ;;
             3) install_tmux         ;;
             4) install_vim          ;;
             5) install_frp          ;;
             6) install_yq           ;;
-            7) install_jq           ;;
             q|"") return 0             ;;  # 返回上级菜单
             *) redr_line "没这个选择[$str_answer],搞错了再来." ;;
         esac

@@ -44,17 +44,16 @@ function update_repo() {
 # 主菜单显示 #
 function show_menu_main() {
     menu_head "安装选项菜单"
-    menu_item 1 安装命令工具
-    menu_item 2 安装图形界面工具
-    menu_item 3 安装编程开发环境
+    menu_item 1 install basic
+    menu_item 2 install gui apps
+    menu_item 3 install develop tools
     menu_tail
-    menu_item c 配置终端环境
-    menu_item d 配置桌面主题
-    menu_item g 安装显卡相关
+    menu_item c config environment
+    menu_item d config desktop
     menu_tail
 
-    menu_item f 防火墙配置
-    menu_item v 服务器配置
+    menu_item f config firewall
+    menu_item v vps server
     menu_tail
 
     menu_item u "${TC}U${NC}pdate更新"
@@ -117,18 +116,5 @@ for fn in `ls ${ONECFG}/scripts/all/main_*.sh` ; do
     source ${fn}
 done
 
-if [ "$#" -ge 0 ]; then  # 无参数情况:进入菜单选择
-    start_main
-else  # 命令执行模式(执行后退出)
-    command="$1"
-    case "$command" in
-        ana*)
-            install_anaconda ;;
-        ohmyzsh)
-            install_ohmyzsh ;;
-        lang)
-            config_langpack ;;
-    esac
-fi
-
+start_main
 menu_head "${SEE_YOU}"
