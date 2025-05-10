@@ -46,7 +46,7 @@ function green_line()  { printf "\033[0;32;1m$@\033[0m\n" ; }
 function greenr_line() { printf "\033[0;32;7m$@\033[0m\n" ; }
 
 item_index=0        # 记录菜单选项序号
-item_line_count=2   # 每行显示菜单数量
+item_line_count=3   # 每行显示菜单数量
 ILEN=30             # 单个选项长度
 MLEN=$(( (${ILEN}+1) * ${item_line_count}))   # 单行最大长度
 print_feed() {
@@ -80,7 +80,7 @@ function center_line() {
   # 构建输出：| + 左空格 + 文本 + 右空格 + |
   printf "| %*s${BRB}%s${NC}" "$left_padding" "" "$text" ; tput hpa $width ; printf "|\n"
 }
-function menu_head() { print_feed;   center_line "$@" ; }
+function menu_head() { print_feed;   center_line "$@" ; print_feed; }
 # 一行可以有 item_line_count 个菜单选项
 function menu_item() { let item_index=$item_index+1 ; n=$1 ; shift ; let rlen="$item_index * ($ILEN + 1)" ; echo -en "|  $BG ${n} $NC $@" ; tput hpa $rlen ; [[ "$item_index" == "$item_line_count" ]] && echo "|" && item_index=0 ; }
 # 输出单行长菜单选项,长度有限制
@@ -100,13 +100,13 @@ function logerr()  { output_log "ERROR" $@ ; }
 function check_term() {
 	# 指定 TERM ，避免对齐问题(已知某些rxvt-unicode终端版本存在对齐问题)
     if [[ "`tput colors`" -ge "256" ]] ; then
-        menu_iteml "支持 256color TERM终端"
+        menu_iteml "终端支持:" "256color"
     else
         export TERM=xterm
         export COLORTERM=truecolor
     fi
-    menu_iteml "当前终端类型: $TERM"
-    menu_iteml "当前终端色彩: $COLORTERM"
+    menu_iteml "TERM终端类型:" "$TERM"
+    menu_iteml "TERM终端色彩:" "$COLORTERM"
 }
 
 
@@ -143,25 +143,16 @@ function check_sys() { # 检查系统发行版信息，获取os_type/os_version/
                 ;;
         esac
     fi
-    case "$XDG_CURRENT_DESKTOP" in
-        KDE|GNOME|XFCE)
-            gui_type="$XDG_CURRENT_DESKTOP"
-            ;;
-        *)
-            gui_type=""
-            [[ "$$XDG_CURRENT_DESKTOP" == "" ]] && echo "您当前会话类型为[$XDG_SESSION_TYPE] 非图形界面下运行"
-            [[ "$$XDG_CURRENT_DESKTOP" != "" ]] && echo "unknown desktop type: $XDG_CURRENT_DESKTOP"
-            ;;
-    esac
+    
     cpu_arch="`uname -m`"
-    menu_iteml "Operating System:$os_type $os_version $cpu_arch"
-    menu_iteml "Desktop Type:${gui_type:-unknown}"
-    menu_iteml "Package Manager:$pac_cmd"
+    menu_iteml "Linux发行版:" "$os_type $os_version $cpu_arch"
+    menu_iteml "DesktopType:" "${XDG_CURRENT_DESKTOP:-unknown}"
+    menu_iteml "PackageManager:" "$pac_cmd"
     if [ -z "$pac_cmd" ] ; then
         return 1
     fi
     if [ "$cpu_arch" != "x86_64" ] ; then
-        menu_iteml "warning: cpu arch:[$cpu_arch]."
+        menu_iteml "warning:" "cpu arch:[$cpu_arch]."
     fi
     return 0
 }

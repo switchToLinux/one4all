@@ -104,6 +104,8 @@ fi
 
 source ${ONECFG}/scripts/all/prompt_functions.sh
 
+menu_head "$WELCOME"
+
 check_term
 check_sys
 [[ "$os_type" == "" || "$os_type" == "unknown" ]] && exit 0
@@ -111,11 +113,9 @@ check_sys
 
 # 导入全部功能模块 #
 for fn in `ls ${ONECFG}/scripts/all/main_*.sh` ; do
-    menu_iteml "加载 `basename ${fn}` 文件"
+    menu_iteml "Loading Script:" " `basename ${fn}`"
     source ${fn}
 done
-
-menu_head "$WELCOME"
 
 if [ "$#" -ge 0 ]; then  # 无参数情况:进入菜单选择
     start_main
@@ -132,4 +132,3 @@ else  # 命令执行模式(执行后退出)
 fi
 
 menu_head "${SEE_YOU}"
-print_feed
