@@ -28,78 +28,6 @@ export gui_type=""         # GUI桌面环境类型
 
 curl_cmd="curl -C - "  # 支持断点继续下载
 
-#### 检测当前终端支持色彩
-function check_term() {
-	# 指定 TERM ，避免对齐问题(已知某些rxvt-unicode终端版本存在对齐问题)
-    if [[ "$TERM" == *"256color"* ]] ; then
-        echo "支持 256color 修改 TERM信息"
-    else
-        export TERM=xterm
-        export COLORTERM=truecolor
-    fi
-    echo "当前终端类型: $TERM"
-    echo "当前终端色彩: $COLORTERM ,但实际终端支持色彩: `tput colors`"
-	echo "提示: 8bit 仅支持8种色彩, truecolor/24bit 支持更多色彩"
-}
-
-
-function check_sys() { # 检查系统发行版信息，获取os_type/os_version/pac_cmd/pac_cmd_ins等变量
-    if [ -f /etc/os-release ] ; then
-        ID=`awk -F= '/^ID=/{print $2}' /etc/os-release|sed 's/\"//g'`
-        os_version=`awk -F= '/^VERSION_ID=/{print $2}' /etc/os-release|sed 's/\"//g'`
-        os_codename=`awk -F= '/^VERSION_CODENAME=/{print $2}' /etc/os-release|sed 's/\"//g'`
-        case "$ID" in
-            centos|fedora)  # 仅支持 centos 8 以上，但不加限制，毕竟7用户很少了
-                os_type="$ID"
-                pac_cmd="dnf"
-                pac_cmd_ins="$pac_cmd install -y"
-                ;;
-            opensuse*)
-                os_type="$ID"
-                pac_cmd="zypper"
-                pac_cmd_ins="$pac_cmd install "
-                ;;
-            ubuntu|debian|raspbian)
-                os_type="$ID"
-                pac_cmd="apt-get"
-                pac_cmd_ins="$pac_cmd install -y"
-                ;;
-            manjaro|arch*)
-                os_type="$ID"
-                pac_cmd="pacman"
-                pac_cmd_ins="$pac_cmd -S --needed --noconfirm "
-                ;;
-            *)
-                os_type="unknown"
-                pac_cmd=""
-                pac_cmd_ins=""
-                ;;
-        esac
-    fi
-    case "$XDG_CURRENT_DESKTOP" in
-        KDE|GNOME|XFCE)
-            gui_type="$XDG_CURRENT_DESKTOP"
-            ;;
-        *)
-            gui_type=""
-            [[ "$$XDG_CURRENT_DESKTOP" == "" ]] && echo "您当前会话类型为[$XDG_SESSION_TYPE] 非图形界面下运行"
-            [[ "$$XDG_CURRENT_DESKTOP" != "" ]] && echo "unknown desktop type: $XDG_CURRENT_DESKTOP"
-            ;;
-    esac
-    cpu_arch="`uname -m`"
-    echo "Operating System:$os_type $os_version $cpu_arch"
-    echo "Desktop Type:${gui_type:-unknown}"
-    echo "Package Manager:$pac_cmd"
-    if [ -z "$pac_cmd" ] ; then
-        return 1
-    fi
-    if [ "$cpu_arch" != "x86_64" ] ; then
-        echo "warning: cpu arch:[$cpu_arch] maybe unstable."
-    fi
-    return 0
-}
-
-
 function check_basic() { # 基础依赖命令检测与安装
     command -v curl >/dev/null || sudo $pac_cmd_ins curl     # 检测 curl 命令
     command -v git >/dev/null  || sudo $pac_cmd_ins git      # 检测 git 命令
@@ -162,10 +90,6 @@ function start_main(){
 }
 
 ####### Main process #################################
-check_term
-check_sys       # 检查系统信息
-
-[[ "$os_type" == "" || "$os_type" == "unknown" ]] && exit 0
 
 check_basic     # 基础依赖命令检测与安装
 
@@ -180,9 +104,14 @@ fi
 
 source ${ONECFG}/scripts/all/prompt_functions.sh
 
+check_term
+check_sys
+[[ "$os_type" == "" || "$os_type" == "unknown" ]] && exit 0
+
+
 # 导入全部功能模块 #
 for fn in `ls ${ONECFG}/scripts/all/main_*.sh` ; do
-    echo "加载 `basename ${fn}` 文件"
+    menu_iteml "加载 `basename ${fn}` 文件"
     source ${fn}
 done
 

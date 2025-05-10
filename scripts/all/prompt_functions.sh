@@ -109,6 +109,63 @@ function check_term() {
     menu_iteml "当前终端色彩: $COLORTERM"
 }
 
+
+function check_sys() { # 检查系统发行版信息，获取os_type/os_version/pac_cmd/pac_cmd_ins等变量
+    if [ -f /etc/os-release ] ; then
+        ID=`awk -F= '/^ID=/{print $2}' /etc/os-release|sed 's/\"//g'`
+        os_version=`awk -F= '/^VERSION_ID=/{print $2}' /etc/os-release|sed 's/\"//g'`
+        os_codename=`awk -F= '/^VERSION_CODENAME=/{print $2}' /etc/os-release|sed 's/\"//g'`
+        case "$ID" in
+            centos|fedora)  # 仅支持 centos 8 以上，但不加限制，毕竟7用户很少了
+                os_type="$ID"
+                pac_cmd="dnf"
+                pac_cmd_ins="$pac_cmd install -y"
+                ;;
+            opensuse*)
+                os_type="$ID"
+                pac_cmd="zypper"
+                pac_cmd_ins="$pac_cmd install "
+                ;;
+            ubuntu|debian|raspbian)
+                os_type="$ID"
+                pac_cmd="apt-get"
+                pac_cmd_ins="$pac_cmd install -y"
+                ;;
+            manjaro|arch*)
+                os_type="$ID"
+                pac_cmd="pacman"
+                pac_cmd_ins="$pac_cmd -S --needed --noconfirm "
+                ;;
+            *)
+                os_type="unknown"
+                pac_cmd=""
+                pac_cmd_ins=""
+                ;;
+        esac
+    fi
+    case "$XDG_CURRENT_DESKTOP" in
+        KDE|GNOME|XFCE)
+            gui_type="$XDG_CURRENT_DESKTOP"
+            ;;
+        *)
+            gui_type=""
+            [[ "$$XDG_CURRENT_DESKTOP" == "" ]] && echo "您当前会话类型为[$XDG_SESSION_TYPE] 非图形界面下运行"
+            [[ "$$XDG_CURRENT_DESKTOP" != "" ]] && echo "unknown desktop type: $XDG_CURRENT_DESKTOP"
+            ;;
+    esac
+    cpu_arch="`uname -m`"
+    menu_iteml "Operating System:$os_type $os_version $cpu_arch"
+    menu_iteml "Desktop Type:${gui_type:-unknown}"
+    menu_iteml "Package Manager:$pac_cmd"
+    if [ -z "$pac_cmd" ] ; then
+        return 1
+    fi
+    if [ "$cpu_arch" != "x86_64" ] ; then
+        menu_iteml "warning: cpu arch:[$cpu_arch]."
+    fi
+    return 0
+}
+
 ################################################################
 #  文本信息设定
 
