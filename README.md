@@ -29,7 +29,7 @@ summary 默认展开，点击可折叠。
   ```bash
 
   # 下载one脚本-短链接
-  curl -L -o one so1st.com/s/one && chmod +x one && sudo mv one /usr/local/bin/
+  curl -L -o one pushx.link/s/one && chmod +x one && sudo mv one /usr/local/bin/
 
   # 执行one脚本
   one
@@ -46,7 +46,7 @@ summary 默认展开，点击可折叠。
   ```bash
 
   # 下载one脚本-短链接
-  wget -O one so1st.com/s/one && chmod +x one && sudo mv one /usr/local/bin/
+  wget -O one pushx.link/s/one && chmod +x one && sudo mv one /usr/local/bin/
 
   # 执行one脚本
   one
@@ -61,7 +61,7 @@ summary 默认展开，点击可折叠。
 | [长连接(Github)](https://raw.githubusercontent.com/switchToLinux/one4all/main/scripts/one4all.sh)| 原始链接、国内访问可能有影响|
 | [长连接(国内CDN)](https://cdn.jsdelivr.net/gh/switchToLinux/one4all@main/scripts/one4all.sh) | 国内访问速度快，但内容更新有延迟 |
 | [短连接-bitly](https://bit.ly/__one)| 稳定短链接，但国内可能因DNS污染问题无法访问|
-| [短链接-自建](https://so1st.com/s/one)| 自建短链接服务，国内访问速度快 |
+| [短链接-自建](https://pushx.link/s/one)| 自建短链接服务，国内访问速度快 |
 
 
 
